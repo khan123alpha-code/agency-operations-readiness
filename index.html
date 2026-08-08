@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agency Operations Readiness Audit Tool</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --navy:#111827;
+    --navy2:#1F2937;
+    --blue:#2563EB;
+    --blue-light:#EFF6FF;
+    --gray:#6B7280;
+    --gray-light:#F3F4F6;
+    --border:#E5E7EB;
+    --green:#15803D;
+    --green-bg:#F0FDF4;
+    --amber:#B45309;
+    --amber-bg:#FFFBEB;
+    --red:#B91C1C;
+    --red-bg:#FEF2F2;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:#F9FAFB;
+    color:var(--navy);
+  }
+  .app{max-width:1000px;margin:0 auto;padding:32px 24px 80px;}
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:28px;flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;flex-direction:column;}
+  .brand .eyebrow{font-size:11px;letter-spacing:1px;color:var(--blue);font-weight:700;text-transform:uppercase;}
+  .brand h1{margin:2px 0 0;font-size:24px;font-weight:800;color:var(--navy);}
+  .brand .sub{font-size:13px;color:var(--gray);margin-top:2px;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:13px;font-weight:600;
+    border-radius:8px;padding:9px 14px;cursor:pointer;
+    border:1px solid var(--border);background:var(--white);color:var(--navy);
+    transition:background .15s;
+  }
+  button:hover{background:var(--gray-light);}
+  button.primary{background:var(--navy);color:var(--white);border-color:var(--navy);}
+  button.primary:hover{background:var(--navy2);}
+  button.accent{background:var(--blue);color:var(--white);border-color:var(--blue);}
+  button.accent:hover{background:#1D4ED8;}
+  button.danger{color:var(--red);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);}
+  .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;}
+  .tab.active{color:var(--blue);border-color:var(--blue);}
+
+  .card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:16px;}
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:700;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;font-weight:600;color:var(--gray);}
+  .field input, .field textarea, .field select{
+    font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:7px;background:#FAFAFA;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+
+  .pillar{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+  .pillar-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;cursor:pointer;}
+  .pillar-head:hover{background:#FAFAFA;}
+  .pillar-title{display:flex;align-items:center;gap:12px;}
+  .pillar-num{
+    width:26px;height:26px;border-radius:50%;background:var(--navy);color:var(--white);
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .pillar-name{font-size:15px;font-weight:700;}
+  .pillar-desc{font-size:12px;color:var(--gray);margin-top:2px;}
+  .pillar-right{display:flex;align-items:center;gap:14px;}
+  .score-badge{
+    font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px;min-width:52px;text-align:center;
+  }
+  .badge-green{background:var(--green-bg);color:var(--green);}
+  .badge-amber{background:var(--amber-bg);color:var(--amber);}
+  .badge-red{background:var(--red-bg);color:var(--red);}
+  .chevron{color:var(--gray);font-size:12px;transition:transform .15s;}
+  .pillar-body{padding:0 20px 20px;border-top:1px solid var(--border);display:none;}
+  .pillar-body.open{display:block;}
+
+  .slider-row{display:flex;align-items:center;gap:14px;margin:16px 0 18px;}
+  .slider-row input[type=range]{flex:1;accent-color:var(--blue);}
+  .slider-val{font-size:20px;font-weight:800;min-width:44px;text-align:right;}
+
+  .sub-field{margin-bottom:14px;}
+  .sub-field label{display:block;font-size:12px;font-weight:600;color:var(--gray);margin-bottom:5px;}
+  .sub-field textarea, .sub-field select, .sub-field input{
+    width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:7px;background:#FAFAFA;
+  }
+  .checklist{display:flex;flex-direction:column;gap:6px;}
+  .checklist label{
+    display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:400;color:var(--navy);
+    cursor:pointer;
+  }
+  .checklist input[type=checkbox]{margin-top:2px;accent-color:var(--blue);}
+  .impact-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .summary-bar{
+    display:flex;justify-content:space-between;align-items:center;background:var(--navy);
+    color:var(--white);border-radius:12px;padding:20px 24px;margin-bottom:20px;flex-wrap:wrap;gap:16px;
+  }
+  .summary-score{display:flex;align-items:baseline;gap:8px;}
+  .summary-score .num{font-size:38px;font-weight:800;}
+  .summary-score .denom{font-size:15px;color:#9CA3AF;}
+  .summary-level{font-size:13px;font-weight:700;padding:5px 14px;border-radius:20px;}
+  .lvl-scalable{background:var(--green-bg);color:var(--green);}
+  .lvl-developing{background:var(--blue-light);color:var(--blue);}
+  .lvl-atrisk{background:var(--amber-bg);color:var(--amber);}
+  .lvl-fragile{background:var(--red-bg);color:var(--red);}
+
+  .saved-list{display:flex;flex-direction:column;gap:8px;}
+  .saved-item{
+    display:flex;justify-content:space-between;align-items:center;padding:12px 16px;
+    border:1px solid var(--border);border-radius:9px;cursor:pointer;
+  }
+  .saved-item:hover{background:var(--gray-light);}
+  .saved-item .meta{font-size:12px;color:var(--gray);}
+  .empty{color:var(--gray);font-size:13px;padding:20px;text-align:center;}
+  .setup-banner{
+    background:var(--amber-bg);border:1px solid #FDE68A;color:var(--amber);
+    border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;line-height:1.6;
+  }
+  .setup-banner code{background:#FFFFFF;padding:1px 6px;border-radius:4px;font-size:12px;}
+
+  #loginScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#F9FAFB;
+  }
+  .login-card{
+    background:var(--white);border:1px solid var(--border);border-radius:14px;
+    padding:36px 32px;width:100%;max-width:360px;
+  }
+  .login-card .eyebrow{font-size:11px;letter-spacing:1px;color:var(--blue);font-weight:700;text-transform:uppercase;}
+  .login-card h1{font-size:20px;font-weight:800;margin:6px 0 4px;}
+  .login-card .sub{font-size:13px;color:var(--gray);margin-bottom:22px;}
+  .login-card .field{margin-bottom:14px;}
+  .login-card .field label{font-size:12px;font-weight:600;color:var(--gray);display:block;margin-bottom:5px;}
+  .login-card .field input{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;background:#FAFAFA;
+  }
+  .login-card button{width:100%;padding:11px;font-size:14px;margin-top:6px;}
+  .login-error{color:var(--red);font-size:12px;margin-top:10px;min-height:16px;}
+  #appRoot{display:none;}
+  .signout-btn{margin-left:8px;}
+
+  /* REPORT VIEW */
+  #report{display:none;}
+  .report-page{background:var(--white);padding:0;}
+  .r-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid var(--navy);margin-bottom:24px;}
+  .r-eyebrow{font-size:11px;letter-spacing:1.5px;color:var(--blue);font-weight:800;text-transform:uppercase;}
+  .r-title{font-size:26px;font-weight:800;margin:4px 0 2px;}
+  .r-sub{font-size:13px;color:var(--gray);}
+  .r-meta{text-align:right;font-size:12px;color:var(--gray);line-height:1.7;}
+  .r-score-block{display:flex;gap:24px;align-items:center;background:var(--gray-light);border-radius:12px;padding:20px 24px;margin-bottom:28px;}
+  .r-score-num{font-size:44px;font-weight:800;}
+  .r-score-label{font-size:12px;color:var(--gray);font-weight:600;}
+  .r-section-title{font-size:16px;font-weight:800;margin:28px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border);}
+  .r-pillar-row{display:grid;grid-template-columns:2fr 60px 90px 3fr;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .r-pillar-row.header{font-weight:700;color:var(--gray);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  .r-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .r-evidence-block{margin-bottom:18px;padding:14px 16px;background:#FAFAFA;border-left:3px solid var(--blue);border-radius:0 8px 8px 0;}
+  .r-evidence-block h4{margin:0 0 6px;font-size:14px;font-weight:700;}
+  .r-evidence-block ul{margin:6px 0;padding-left:18px;font-size:13px;color:var(--navy2);}
+  .r-rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;font-size:12px;}
+  .r-rec-grid div{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .r-rec-grid b{display:block;color:var(--gray);font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+  .footer-note{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--gray);text-align:center;}
+
+  @media print{
+    body{background:var(--white);}
+    .app{max-width:100%;padding:0;}
+    .topbar, .tabs, #builder{display:none !important;}
+    #report{display:block !important;}
+    .r-header{page-break-after:avoid;}
+    .r-evidence-block{page-break-inside:avoid;}
+  }
+  @media(max-width:640px){
+    .field-row, .impact-row{grid-template-columns:1fr;}
+    .r-header{flex-direction:column;gap:10px;}
+    .r-meta{text-align:left;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <span class="eyebrow">Agency Operations Readiness™</span>
+    <h1>Sign in</h1>
+    <div class="sub">Access is limited to your team. Contact Ikram if you need an account.</div>
+    <div class="field">
+      <label>Email</label>
+      <input id="loginEmail" type="email" placeholder="you@agency.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="loginPassword" type="password" placeholder="••••••••">
+    </div>
+    <button class="primary" id="loginBtn" style="width:100%;">Sign in</button>
+    <div class="login-error" id="loginError"></div>
+    <div style="text-align:center;margin-top:14px;">
+      <a href="#" id="forgotLink" style="font-size:12px;color:var(--gray);text-decoration:underline;">Forgot password?</a>
+    </div>
+  </div>
+</div>
+
+<div id="appRoot">
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow">Ikram Khan, Agency Fulfillment Partner</span>
+      <h1>Agency Operations Readiness™</h1>
+      <span class="sub">Score agencies, capture evidence, and generate the report in one place</span>
+    </div>
+    <div class="actions">
+      <button id="newBtn">New audit</button>
+      <button id="saveBtn" class="primary">Save audit</button>
+      <button id="reportBtn" class="accent">Generate report</button>
+      <button id="signOutBtn" class="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    This copy isn't connected to a database yet, so saved audits won't sync across devices. Open the file, find <code>FIREBASE_CONFIG</code> near the bottom, and paste in your own Firebase project keys. See the setup guide for the exact steps.
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="builder">Audit builder</div>
+    <div class="tab" data-tab="saved">Saved audits</div>
+  </div>
+
+  <div id="builder">
+    <div class="summary-bar">
+      <div class="summary-score">
+        <span class="num" id="totalScore">0</span>
+        <span class="denom">/ 70</span>
+      </div>
+      <span class="summary-level lvl-fragile" id="levelBadge">Not scored</span>
+      <div style="font-size:12px;color:#D1D5DB;">Agency Readiness Index™, calculated automatically from all 7 pillars</div>
+    </div>
+
+    <div class="card">
+      <h2>Agency details</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>Agency name</label>
+          <input id="agencyName" placeholder="e.g. Bright Path Marketing">
+        </div>
+        <div class="field">
+          <label>Website / LinkedIn</label>
+          <input id="agencyLink" placeholder="e.g. linkedin.com/company/...">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Owner / contact name</label>
+          <input id="ownerName" placeholder="e.g. Brandon Lee">
+        </div>
+        <div class="field">
+          <label>Audit date</label>
+          <input id="auditDate" type="date">
+        </div>
+      </div>
+    </div>
+
+    <div id="pillarsContainer"></div>
+  </div>
+
+  <div id="saved" style="display:none;">
+    <div class="card">
+      <h2>Saved audits</h2>
+      <div class="saved-list" id="savedList"></div>
+    </div>
+  </div>
+
+  <div id="report">
+    <div class="report-page" id="reportContent"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const PILLARS = [
+  {name:"Client Acquisition", desc:"Can the agency consistently generate opportunities?",
+   questions:[
+     "There's a consistent, repeatable source of new opportunities",
+     "The agency isn't fully dependent on referrals or one channel",
+     "There's a clear message / positioning prospects respond to",
+     "Pipeline of upcoming opportunities is visible, not guessed at"
+   ]},
+  {name:"Sales", desc:"Speed, pipeline, follow-up, CRM",
+   questions:[
+     "Leads are followed up with quickly (same day)",
+     "Pipeline stages are clearly defined and used consistently",
+     "Follow-up happens automatically, not from memory",
+     "A real CRM is used, not spreadsheets or notes"
+   ]},
+  {name:"Client Onboarding", desc:"Documents, forms, kickoff",
+   questions:[
+     "There's a standard kickoff process for every new client",
+     "Onboarding forms/documents are ready to send, not built each time",
+     "New clients go live within a predictable timeframe",
+     "Clients know exactly what to expect in the first 30 days"
+   ]},
+  {name:"Service Delivery", desc:"Tasks, communication, accountability",
+   questions:[
+     "Delivery quality is consistent regardless of who handles the account",
+     "Every client has one clearly assigned owner",
+     "Tasks are tracked in one central system",
+     "Nothing depends on the founder remembering it"
+   ]},
+  {name:"Operations", desc:"SOPs, automation, team, documentation, processes",
+   questions:[
+     "Repeat tasks have written SOPs the team actually uses",
+     "Key workflows are automated, not manual",
+     "New hires are trained with a documented process",
+     "Work is centralized, not duplicated across tools/people"
+   ]},
+  {name:"Client Experience", desc:"Reporting, communication, retention, renewals",
+   questions:[
+     "Reporting goes out on a consistent, predictable schedule",
+     "There's a simple way to see the health of every active client",
+     "Clients know exactly who to contact for what",
+     "There's a defined process for renewals and retention"
+   ]},
+  {name:"Growth", desc:"Hiring, delegation, scalability, owner dependence",
+   questions:[
+     "The founder is not the default owner of day-to-day execution",
+     "The business could absorb 2x the clients without breaking",
+     "Decisions don't all require founder approval",
+     "There's a hiring/delegation plan for the next stage of growth"
+   ]}
+];
+
+let state = {
+  id: null,
+  agencyName: "", agencyLink: "", ownerName: "", auditDate: "",
+  pillars: PILLARS.map(p => ({
+    score: 5, evidence: ["", "", "", ""], recommendation: "", priority: "Medium",
+    timeSaved: "", costSaved: "", open: false
+  }))
+};
+
+function riskColor(score){
+  if(score >= 8) return {cls:'badge-green', label:'Strong'};
+  if(score >= 5) return {cls:'badge-amber', label:'Developing'};
+  return {cls:'badge-red', label:'At risk'};
+}
+
+function renderPillars(){
+  const container = document.getElementById('pillarsContainer');
+  container.innerHTML = '';
+  PILLARS.forEach((p, i) => {
+    const st = state.pillars[i];
+    const rc = riskColor(st.score);
+    const el = document.createElement('div');
+    el.className = 'pillar';
+    el.innerHTML = `
+      <div class="pillar-head" data-idx="${i}">
+        <div class="pillar-title">
+          <div class="pillar-num">${i+1}</div>
+          <div>
+            <div class="pillar-name">${p.name}</div>
+            <div class="pillar-desc">${p.desc}</div>
+          </div>
+        </div>
+        <div class="pillar-right">
+          <span class="score-badge ${rc.cls}">${st.score}/10</span>
+          <span class="chevron">${st.open ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      <div class="pillar-body ${st.open ? 'open' : ''}">
+        <div class="slider-row">
+          <span style="font-size:12px;color:var(--gray);">Score</span>
+          <input type="range" min="0" max="10" step="1" value="${st.score}" data-idx="${i}" class="scoreSlider">
+          <span class="slider-val">${st.score}</span>
+        </div>
+        <div class="sub-field">
+          <label>Evidence (what you actually found, be specific)</label>
+          <div class="checklist">
+            ${p.questions.map((q, qi) => `
+              <textarea data-idx="${i}" data-qi="${qi}" class="evidenceInput" placeholder="${q}" rows="1">${st.evidence[qi]}</textarea>
+            `).join('')}
+          </div>
+        </div>
+        <div class="sub-field">
+          <label>Recommendation</label>
+          <textarea data-idx="${i}" class="recInput" placeholder="e.g. Automate the onboarding form and kickoff email sequence">${st.recommendation}</textarea>
+        </div>
+        <div class="impact-row">
+          <div class="sub-field">
+            <label>Priority</label>
+            <select data-idx="${i}" class="prioritySelect">
+              <option value="High" ${st.priority==='High'?'selected':''}>High</option>
+              <option value="Medium" ${st.priority==='Medium'?'selected':''}>Medium</option>
+              <option value="Low" ${st.priority==='Low'?'selected':''}>Low</option>
+            </select>
+          </div>
+          <div class="sub-field">
+            <label>Estimated ROI</label>
+            <div style="display:flex;gap:8px;">
+              <input data-idx="${i}" class="timeInput" placeholder="e.g. 4 hrs/week saved" value="${st.timeSaved}">
+              <input data-idx="${i}" class="costInput" placeholder="e.g. $800/month" value="${st.costSaved}">
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(el);
+  });
+
+  container.querySelectorAll('.pillar-head').forEach(h => {
+    h.addEventListener('click', () => {
+      const idx = +h.dataset.idx;
+      state.pillars[idx].open = !state.pillars[idx].open;
+      renderPillars();
+    });
+  });
+  container.querySelectorAll('.scoreSlider').forEach(s => {
+    s.addEventListener('input', (e) => {
+      const idx = +e.target.dataset.idx;
+      state.pillars[idx].score = +e.target.value;
+      updateSummary();
+      const badge = e.target.closest('.pillar').querySelector('.score-badge');
+      const rc = riskColor(state.pillars[idx].score);
+      badge.className = 'score-badge ' + rc.cls;
+      badge.textContent = state.pillars[idx].score + '/10';
+      e.target.nextElementSibling.textContent = state.pillars[idx].score;
+    });
+  });
+  container.querySelectorAll('.evidenceInput').forEach(t => {
+    t.addEventListener('input', (e) => {
+      state.pillars[+e.target.dataset.idx].evidence[+e.target.dataset.qi] = e.target.value;
+    });
+  });
+  container.querySelectorAll('.recInput').forEach(t => {
+    t.addEventListener('input', (e) => { state.pillars[+e.target.dataset.idx].recommendation = e.target.value; });
+  });
+  container.querySelectorAll('.prioritySelect').forEach(s => {
+    s.addEventListener('change', (e) => { state.pillars[+e.target.dataset.idx].priority = e.target.value; });
+  });
+  container.querySelectorAll('.timeInput').forEach(t => {
+    t.addEventListener('input', (e) => { state.pillars[+e.target.dataset.idx].timeSaved = e.target.value; });
+  });
+  container.querySelectorAll('.costInput').forEach(t => {
+    t.addEventListener('input', (e) => { state.pillars[+e.target.dataset.idx].costSaved = e.target.value; });
+  });
+}
+
+function updateSummary(){
+  const total = state.pillars.reduce((s, p) => s + p.score, 0);
+  document.getElementById('totalScore').textContent = total;
+  const pct = total / 70;
+  const badge = document.getElementById('levelBadge');
+  if(pct >= 0.8){ badge.className='summary-level lvl-scalable'; badge.textContent='Scalable'; }
+  else if(pct >= 0.6){ badge.className='summary-level lvl-developing'; badge.textContent='Developing'; }
+  else if(pct >= 0.4){ badge.className='summary-level lvl-atrisk'; badge.textContent='At risk'; }
+  else { badge.className='summary-level lvl-fragile'; badge.textContent='Fragile'; }
+}
+
+document.getElementById('agencyName').addEventListener('input', e => state.agencyName = e.target.value);
+document.getElementById('agencyLink').addEventListener('input', e => state.agencyLink = e.target.value);
+document.getElementById('ownerName').addEventListener('input', e => state.ownerName = e.target.value);
+document.getElementById('auditDate').addEventListener('input', e => state.auditDate = e.target.value);
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('builder').style.display = t.dataset.tab === 'builder' ? 'block' : 'none';
+    document.getElementById('saved').style.display = t.dataset.tab === 'saved' ? 'block' : 'none';
+    if(t.dataset.tab === 'saved') loadSavedList();
+  });
+});
+
+document.getElementById('newBtn').addEventListener('click', () => {
+  if(!confirm('Start a new audit? Unsaved changes will be lost.')) return;
+  state = {
+    id: null, agencyName:"", agencyLink:"", ownerName:"", auditDate:"",
+    pillars: PILLARS.map(p => ({ score:5, evidence:["","","",""], recommendation:"", priority:"Medium", timeSaved:"", costSaved:"", open:false }))
+  };
+  document.getElementById('agencyName').value = "";
+  document.getElementById('agencyLink').value = "";
+  document.getElementById('ownerName').value = "";
+  document.getElementById('auditDate').value = "";
+  renderPillars();
+  updateSummary();
+});
+
+// ---- Firebase setup ----
+// 1. Go to https://console.firebase.google.com, create a free project
+// 2. Add a Web App inside that project, copy the config object it gives you
+// 3. Paste it below, replacing the placeholder values
+// 4. In the Firebase console, go to Firestore Database, create a database (test mode is fine to start)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCkt4mHvmilsUHCkb6a9qnpkZVm34kZp6E",
+  authDomain: "agency-operations-readiness.firebaseapp.com",
+  projectId: "agency-operations-readiness",
+  storageBucket: "agency-operations-readiness.firebasestorage.app",
+  messagingSenderId: "835254519",
+  appId: "1:835254519:web:a93dcbec575619d982bbf2"
+};
+
+let db = null;
+let auth = null;
+let firebaseReady = false;
+try{
+  if(FIREBASE_CONFIG.apiKey !== "PASTE_YOUR_API_KEY"){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    firebaseReady = true;
+  } else {
+    document.getElementById('setupBanner').style.display = 'block';
+  }
+}catch(err){
+  console.error('Firebase init failed', err);
+  document.getElementById('setupBanner').style.display = 'block';
+}
+
+const AUDITS_COLLECTION = 'aor_audits';
+
+// ---- Auth gating ----
+if(firebaseReady){
+  auth.onAuthStateChanged(user => {
+    if(user){
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appRoot').style.display = 'block';
+      loadSavedList();
+    } else {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('appRoot').style.display = 'none';
+    }
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    if(!email || !password){
+      errEl.textContent = 'Enter your email and password.';
+      return;
+    }
+    try{
+      await auth.signInWithEmailAndPassword(email, password);
+    }catch(err){
+      errEl.textContent = 'Sign in failed. Check your email and password, or ask Ikram to confirm your account.';
+    }
+  });
+
+  document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') document.getElementById('loginBtn').click();
+  });
+
+  document.getElementById('forgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('loginError');
+    errEl.style.color = 'var(--red)';
+    const email = document.getElementById('loginEmail').value.trim();
+    if(!email){
+      errEl.textContent = 'Type your email above first, then click "Forgot password?" again.';
+      return;
+    }
+    try{
+      await auth.sendPasswordResetEmail(email);
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Reset link sent. Check that inbox (and spam folder) for an email from Firebase.';
+    }catch(err){
+      errEl.style.color = 'var(--red)';
+      errEl.textContent = 'Could not send reset email. Double check the email address is correct.';
+    }
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', () => {
+    auth.signOut();
+  });
+} else {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+}
+
+async function saveAudit(){
+  if(!state.agencyName){
+    alert('Add an agency name before saving.');
+    return;
+  }
+  if(!firebaseReady){
+    alert('Connect Firebase first, see the banner at the top for setup steps.');
+    return;
+  }
+  if(!state.id) state.id = 'audit_' + Date.now();
+  try{
+    await db.collection(AUDITS_COLLECTION).doc(state.id).set({
+      ...state, savedAt: new Date().toISOString()
+    });
+    alert('Audit saved.');
+  }catch(err){
+    console.error(err);
+    alert('Could not save. Check your Firebase setup and try again.');
+  }
+}
+
+async function loadSavedList(){
+  const list = document.getElementById('savedList');
+  if(!firebaseReady){
+    list.innerHTML = '<div class="empty">Connect Firebase to start saving and syncing audits. See the banner at the top for setup steps.</div>';
+    return;
+  }
+  list.innerHTML = '<div class="empty">Loading...</div>';
+  try{
+    const snap = await db.collection(AUDITS_COLLECTION).orderBy('savedAt', 'desc').get();
+    if(snap.empty){
+      list.innerHTML = '<div class="empty">No saved audits yet. Build one and click "Save audit".</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.forEach(doc => {
+      const data = doc.data();
+      const total = data.pillars.reduce((s,p)=>s+p.score,0);
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+      item.innerHTML = `
+        <div>
+          <div style="font-weight:700;font-size:14px;">${data.agencyName || 'Untitled agency'}</div>
+          <div class="meta">${data.ownerName || ''} ${data.ownerName ? '·' : ''} ${data.auditDate || ''} · Score ${total}/70</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="loadBtn" data-id="${doc.id}">Open</button>
+          <button class="danger deleteBtn" data-id="${doc.id}">Delete</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+    list.querySelectorAll('.loadBtn').forEach(b => {
+      b.addEventListener('click', async () => {
+        const doc = await db.collection(AUDITS_COLLECTION).doc(b.dataset.id).get();
+        state = doc.data();
+        document.getElementById('agencyName').value = state.agencyName || "";
+        document.getElementById('agencyLink').value = state.agencyLink || "";
+        document.getElementById('ownerName').value = state.ownerName || "";
+        document.getElementById('auditDate').value = state.auditDate || "";
+        renderPillars();
+        updateSummary();
+        document.querySelector('.tab[data-tab="builder"]').click();
+      });
+    });
+    list.querySelectorAll('.deleteBtn').forEach(b => {
+      b.addEventListener('click', async () => {
+        if(!confirm('Delete this audit?')) return;
+        await db.collection(AUDITS_COLLECTION).doc(b.dataset.id).delete();
+        loadSavedList();
+      });
+    });
+  }catch(err){
+    console.error(err);
+    list.innerHTML = '<div class="empty">Could not load saved audits. Check your Firebase setup.</div>';
+  }
+}
+
+document.getElementById('saveBtn').addEventListener('click', saveAudit);
+
+function buildReport(){
+  const total = state.pillars.reduce((s,p)=>s+p.score,0);
+  const pct = total/70;
+  let levelLabel, levelColor;
+  if(pct>=0.8){levelLabel='Scalable';levelColor='#15803D';}
+  else if(pct>=0.6){levelLabel='Developing';levelColor='#2563EB';}
+  else if(pct>=0.4){levelLabel='At risk';levelColor='#B45309';}
+  else {levelLabel='Fragile';levelColor='#B91C1C';}
+
+  const sorted = state.pillars.map((p,i)=>({...p, name:PILLARS[i].name})).sort((a,b)=>a.score-b.score);
+  const weakest = sorted.slice(0,3);
+  const strongest = sorted.slice(-3).reverse();
+
+  const rows = state.pillars.map((p,i) => {
+    const rc = p.score>=8?'#15803D':p.score>=5?'#B45309':'#B91C1C';
+    return `<div class="r-pillar-row">
+      <div><span class="r-dot" style="background:${rc}"></span>${PILLARS[i].name}</div>
+      <div><b>${p.score}/10</b></div>
+      <div style="color:${rc};font-weight:700;">${p.score>=8?'Strong':p.score>=5?'Developing':'At risk'}</div>
+      <div style="color:#6B7280;">${p.recommendation ? p.recommendation.slice(0,70) + (p.recommendation.length>70?'...':'') : 'Not yet reviewed'}</div>
+    </div>`;
+  }).join('');
+
+  const evidenceBlocks = state.pillars.map((p,i) => {
+    const evText = p.evidence.filter(e=>e.trim()).map(e=>`<li>${e}</li>`).join('');
+    if(!evText && !p.recommendation) return '';
+    return `<div class="r-evidence-block">
+      <h4>${PILLARS[i].name} <span style="color:#6B7280;font-weight:600;">(${p.score}/10)</span></h4>
+      ${evText ? `<ul>${evText}</ul>` : ''}
+      ${p.recommendation ? `
+      <div class="r-rec-grid">
+        <div><b>Recommendation</b>${p.recommendation}</div>
+        <div><b>Priority</b>${p.priority}</div>
+        ${p.timeSaved ? `<div><b>Time saved</b>${p.timeSaved}</div>` : ''}
+        ${p.costSaved ? `<div><b>Cost saved</b>${p.costSaved}</div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML = `
+    <div class="r-header">
+      <div>
+        <div class="r-eyebrow">Agency Operations Readiness™</div>
+        <div class="r-title">${state.agencyName || 'Untitled agency'}</div>
+        <div class="r-sub">Operational readiness assessment</div>
+      </div>
+      <div class="r-meta">
+        Prepared for: ${state.ownerName || 'Agency owner'}<br>
+        Date: ${state.auditDate || 'Not set'}<br>
+        Prepared by: Ikram Khan
+      </div>
+    </div>
+
+    <div class="r-score-block">
+      <div>
+        <div class="r-score-num" style="color:${levelColor}">${total}<span style="font-size:20px;color:#9CA3AF;">/70</span></div>
+        <div class="r-score-label">Agency Readiness Index™</div>
+      </div>
+      <div>
+        <span class="summary-level" style="background:${levelColor}1A;color:${levelColor};font-size:14px;padding:6px 16px;">${levelLabel}</span>
+      </div>
+    </div>
+
+    <div class="r-section-title">Pillar scores</div>
+    <div class="r-pillar-row header">
+      <div>Pillar</div><div>Score</div><div>Status</div><div>Key recommendation</div>
+    </div>
+    ${rows}
+
+    <div class="r-section-title">Top strengths</div>
+    <div class="r-pillar-row header"><div>Pillar</div><div>Score</div><div></div><div></div></div>
+    ${strongest.map(p=>`<div class="r-pillar-row"><div><span class="r-dot" style="background:#15803D"></span>${p.name}</div><div><b>${p.score}/10</b></div><div></div><div></div></div>`).join('')}
+
+    <div class="r-section-title">Top priorities</div>
+    <div class="r-pillar-row header"><div>Pillar</div><div>Score</div><div></div><div></div></div>
+    ${weakest.map(p=>`<div class="r-pillar-row"><div><span class="r-dot" style="background:#B91C1C"></span>${p.name}</div><div><b>${p.score}/10</b></div><div></div><div></div></div>`).join('')}
+
+    <div class="r-section-title">Findings and recommendations</div>
+    ${evidenceBlocks || '<p style="color:#6B7280;font-size:13px;">No evidence or recommendations recorded yet.</p>'}
+
+    <div class="footer-note">Agency Operations Readiness™ (AOR), a proprietary assessment framework by Ikram Khan</div>
+  `;
+}
+
+document.getElementById('reportBtn').addEventListener('click', () => {
+  buildReport();
+  window.print();
+});
+
+renderPillars();
+updateSummary();
+loadSavedList();
+</script>
+</body>
+</html>
