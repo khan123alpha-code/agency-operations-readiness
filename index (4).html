@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agency Operations Readiness Audit Tool</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#111827;
+    --navy2:#1F2937;
+    --blue:#2563EB;
+    --blue-light:#EFF6FF;
+    --gray:#6B7280;
+    --gray-light:#F3F4F6;
+    --border:#E5E7EB;
+    --green:#15803D;
+    --green-bg:#F0FDF4;
+    --amber:#B45309;
+    --amber-bg:#FFFBEB;
+    --red:#B91C1C;
+    --red-bg:#FEF2F2;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:#F9FAFB;
+    color:var(--navy);
+  }
+  .app{max-width:1000px;margin:0 auto;padding:32px 24px 80px;}
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:28px;flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;flex-direction:column;}
+  .brand .eyebrow{font-size:11px;letter-spacing:1px;color:var(--blue);font-weight:700;text-transform:uppercase;}
+  .brand h1{margin:2px 0 0;font-size:24px;font-weight:800;color:var(--navy);}
+  .brand .sub{font-size:13px;color:var(--gray);margin-top:2px;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:13px;font-weight:600;
+    border-radius:8px;padding:9px 14px;cursor:pointer;
+    border:1px solid var(--border);background:var(--white);color:var(--navy);
+    transition:background .15s;
+  }
+  button:hover{background:var(--gray-light);}
+  button.primary{background:var(--navy);color:var(--white);border-color:var(--navy);}
+  button.primary:hover{background:var(--navy2);}
+  button.accent{background:var(--blue);color:var(--white);border-color:var(--blue);}
+  button.accent:hover{background:#1D4ED8;}
+  button.danger{color:var(--red);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);}
+  .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;}
+  .tab.active{color:var(--blue);border-color:var(--blue);}
+
+  .card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:16px;}
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:700;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;font-weight:600;color:var(--gray);}
+  .field input, .field textarea, .field select{
+    font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:7px;background:#FAFAFA;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+
+  .pillar{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+  .pillar-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;cursor:pointer;}
+  .pillar-head:hover{background:#FAFAFA;}
+  .pillar-title{display:flex;align-items:center;gap:12px;}
+  .pillar-num{
+    width:26px;height:26px;border-radius:50%;background:var(--navy);color:var(--white);
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .pillar-name{font-size:15px;font-weight:700;}
+  .pillar-desc{font-size:12px;color:var(--gray);margin-top:2px;}
+  .pillar-right{display:flex;align-items:center;gap:14px;}
+  .score-badge{
+    font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px;min-width:52px;text-align:center;
+  }
+  .badge-green{background:var(--green-bg);color:var(--green);}
+  .badge-amber{background:var(--amber-bg);color:var(--amber);}
+  .badge-red{background:var(--red-bg);color:var(--red);}
+  .chevron{color:var(--gray);font-size:12px;transition:transform .15s;}
+  .pillar-body{padding:0 20px 20px;border-top:1px solid var(--border);display:none;}
+  .pillar-body.open{display:block;}
+
+  .slider-row{display:flex;align-items:center;gap:14px;margin:16px 0 18px;}
+  .slider-row input[type=range]{flex:1;accent-color:var(--blue);}
+  .slider-val{font-size:20px;font-weight:800;min-width:44px;text-align:right;}
+
+  .sub-field{margin-bottom:14px;}
+  .sub-field label{display:block;font-size:12px;font-weight:600;color:var(--gray);margin-bottom:5px;}
+  .sub-field textarea, .sub-field select, .sub-field input{
+    width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:7px;background:#FAFAFA;
+  }
+  .checklist{display:flex;flex-direction:column;gap:6px;}
+  .checklist label{
+    display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:400;color:var(--navy);
+    cursor:pointer;
+  }
+  .checklist input[type=checkbox]{margin-top:2px;accent-color:var(--blue);}
+  .impact-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .summary-bar{
+    display:flex;justify-content:space-between;align-items:center;background:var(--navy);
+    color:var(--white);border-radius:12px;padding:20px 24px;margin-bottom:20px;flex-wrap:wrap;gap:16px;
+  }
+  .summary-score{display:flex;align-items:baseline;gap:8px;}
+  .summary-score .num{font-size:38px;font-weight:800;}
+  .summary-score .denom{font-size:15px;color:#9CA3AF;}
+  .summary-level{font-size:13px;font-weight:700;padding:5px 14px;border-radius:20px;}
+  .lvl-scalable{background:var(--green-bg);color:var(--green);}
+  .lvl-developing{background:var(--blue-light);color:var(--blue);}
+  .lvl-atrisk{background:var(--amber-bg);color:var(--amber);}
+  .lvl-fragile{background:var(--red-bg);color:var(--red);}
+
+  .saved-list{display:flex;flex-direction:column;gap:8px;}
+  .saved-item{
+    display:flex;justify-content:space-between;align-items:center;padding:12px 16px;
+    border:1px solid var(--border);border-radius:9px;cursor:pointer;
+  }
+  .saved-item:hover{background:var(--gray-light);}
+  .saved-item .meta{font-size:12px;color:var(--gray);}
+  .empty{color:var(--gray);font-size:13px;padding:20px;text-align:center;}
+  .setup-banner{
+    background:var(--amber-bg);border:1px solid #FDE68A;color:var(--amber);
+    border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;line-height:1.6;
+  }
+  .setup-banner code{background:#FFFFFF;padding:1px 6px;border-radius:4px;font-size:12px;}
+
+  #loginScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#F9FAFB;
+  }
+  .login-card{
+    background:var(--white);border:1px solid var(--border);border-radius:14px;
+    padding:36px 32px;width:100%;max-width:360px;
+  }
+  .login-card .eyebrow{font-size:11px;letter-spacing:1px;color:var(--blue);font-weight:700;text-transform:uppercase;}
+  .login-card h1{font-size:20px;font-weight:800;margin:6px 0 4px;}
+  .login-card .sub{font-size:13px;color:var(--gray);margin-bottom:22px;}
+  .login-card .field{margin-bottom:14px;}
+  .login-card .field label{font-size:12px;font-weight:600;color:var(--gray);display:block;margin-bottom:5px;}
+  .login-card .field input{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;background:#FAFAFA;
+  }
+  .login-card button{width:100%;padding:11px;font-size:14px;margin-top:6px;}
+  .login-error{color:var(--red);font-size:12px;margin-top:10px;min-height:16px;}
+  #appRoot{display:none;}
+  .signout-btn{margin-left:8px;}
+
+  /* REPORT VIEW */
+  #report{display:none;}
+  .report-page{background:var(--white);padding:0;}
+  .r-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid var(--navy);margin-bottom:24px;}
+  .r-eyebrow{font-size:11px;letter-spacing:1.5px;color:var(--blue);font-weight:800;text-transform:uppercase;}
+  .r-title{font-size:26px;font-weight:800;margin:4px 0 2px;}
+  .r-sub{font-size:13px;color:var(--gray);}
+  .r-meta{text-align:right;font-size:12px;color:var(--gray);line-height:1.7;}
+  .r-score-block{display:flex;gap:24px;align-items:center;background:var(--gray-light);border-radius:12px;padding:20px 24px;margin-bottom:28px;}
+  .r-score-num{font-size:44px;font-weight:800;}
+  .r-score-label{font-size:12px;color:var(--gray);font-weight:600;}
+  .r-section-title{font-size:16px;font-weight:800;margin:28px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border);}
+  .r-pillar-row{display:grid;grid-template-columns:2fr 60px 90px 3fr;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .r-pillar-row.header{font-weight:700;color:var(--gray);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  .r-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .r-evidence-block{margin-bottom:18px;padding:14px 16px;background:#FAFAFA;border-left:3px solid var(--blue);border-radius:0 8px 8px 0;}
+  .r-evidence-block h4{margin:0 0 6px;font-size:14px;font-weight:700;}
+  .r-evidence-block ul{margin:6px 0;padding-left:18px;font-size:13px;color:var(--navy2);}
+  .r-rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;font-size:12px;}
+  .r-rec-grid div{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .r-rec-grid b{display:block;color:var(--gray);font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+  .footer-note{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--gray);text-align:center;}
+
+  @media print{
+    body{background:var(--white);}
+    .app{max-width:100%;padding:0;}
+    .topbar, .tabs, #builder{display:none !important;}
+    #report{display:block !important;}
+    .r-header{page-break-after:avoid;}
+    .r-evidence-block{page-break-inside:avoid;}
+  }
+  @media(max-width:640px){
+    .field-row, .impact-row{grid-template-columns:1fr;}
+    .r-header{flex-direction:column;gap:10px;}
+    .r-meta{text-align:left;}
+  }
+
+  #leadDetail{position:fixed;inset:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:9999;}
+  #leadDetail .detail-card{background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--border);}
+  .lead-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 18px;}
+  .lead-grid div{background:#F9FAFB;border:1px solid var(--border);border-radius:8px;padding:10px;}
+  .lead-grid b{display:block;font-size:10px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;}
+  @media(max-width:640px){.lead-grid{grid-template-columns:1fr;}}
+
+/* AOR 2.0 premium assessment UI */
+.assessment-intro{background:linear-gradient(135deg,#11152E 0%,#1D2347 100%);color:#fff;border-radius:18px;padding:26px 28px;margin-bottom:18px;position:relative;overflow:hidden}
+.assessment-intro:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;border:1px solid rgba(255,215,0,.25);right:-70px;top:-90px}
+.assessment-kicker{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#FFD700;font-weight:800}
+.assessment-intro h2{font-size:25px;margin:6px 0 7px;color:#fff}
+.assessment-intro p{margin:0;color:#D9DDF0;max-width:700px;line-height:1.55;font-size:13px}
+.assessment-progress{margin-top:18px;background:rgba(255,255,255,.1);height:7px;border-radius:99px;overflow:hidden}
+.assessment-progress-bar{height:100%;width:0;background:#FFD700;border-radius:99px;transition:width .25s}
+.premium-pillar{border:1px solid #E7E9F0;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(15,16,40,.04);margin-bottom:12px}
+.premium-head{padding:18px 18px;background:#fff}
+.premium-head:hover{background:#FAFAFD}
+.question-count{font-size:11px;color:#6B7280;margin-right:5px}
+.question-helper{background:#F7F7FA;border:1px solid #ECECF2;border-radius:10px;padding:11px 13px;font-size:12px;color:#596073;margin-bottom:16px}
+.aor-question{display:grid;grid-template-columns:30px 1fr;gap:10px;margin:0 0 18px}
+.q-number{width:28px;height:28px;border-radius:8px;background:#11152E;color:#FFD700;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800}
+.q-text{font-size:14px;font-weight:700;color:#171A2B;line-height:1.45;margin-bottom:10px}
+.answer-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.answer-btn{background:#fff;border:1px solid #E1E4EC;border-radius:10px;padding:9px 5px;cursor:pointer;transition:.16s;min-height:57px}
+.answer-btn span{display:block;font-size:14px;font-weight:800;color:#11152E}
+.answer-btn small{display:block;font-size:8px;line-height:1.2;color:#7B8192;margin-top:3px}
+.answer-btn:hover{border-color:#B8A000;transform:translateY(-1px)}
+.answer-btn.selected{background:#11152E;border-color:#11152E;box-shadow:0 4px 12px rgba(17,21,46,.18)}
+.answer-btn.selected span,.answer-btn.selected small{color:#fff}
+.answer-btn.selected small{color:#FFD700}
+.auto-insight{border-top:1px solid #ECECF2;padding-top:12px;display:flex;justify-content:space-between;font-size:11px;color:#7B8192}
+.auto-insight b{color:#11152E}
+@media(max-width:640px){.answer-grid{grid-template-columns:1fr 1fr}.answer-btn:last-child{grid-column:1/-1}.assessment-intro{padding:21px}.assessment-intro h2{font-size:21px}}
+
+
+.report-cover{padding:45px 10px 35px;border-bottom:1px solid #E5E7EB;margin-bottom:25px;min-height:360px}
+.report-brand{font-size:11px;letter-spacing:2px;font-weight:900;color:#B18B00}
+.report-cover-line{width:55px;height:4px;background:#FFD700;margin:15px 0 28px;border-radius:4px}
+.report-cover h1{font-size:34px;line-height:1.1;margin:0 0 8px;color:#11152E}
+.report-cover p{font-size:15px;color:#6B7280;margin:0}
+.report-cover-score{margin-top:42px;color:#11152E}
+.report-cover-score span{font-size:74px;font-weight:900}
+.report-cover-score small{font-size:24px;color:#9CA3AF}
+.report-cover-status{display:inline-block;border-radius:999px;padding:7px 15px;font-size:12px;font-weight:800;margin-top:8px}
+.report-cover-meta{margin-top:24px;font-size:11px;color:#6B7280;line-height:1.8}
+.r-exec{font-size:15px;line-height:1.75;color:#303548;background:#F7F7FA;border-left:4px solid #FFD700;padding:18px 20px;border-radius:0 10px 10px 0}
+.r-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.r-mini-grid div{border:1px solid #E5E7EB;border-radius:10px;padding:13px;background:#fff}
+.r-mini-grid b{display:block;color:#7B8192;font-size:9px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.r-mini-grid strong{font-size:15px;color:#11152E}
+.r-bars{border:1px solid #E5E7EB;border-radius:12px;padding:16px}
+.r-bar-row{display:grid;grid-template-columns:125px 1fr 40px;gap:10px;align-items:center;margin:11px 0;font-size:11px}
+.r-bar-track{height:9px;background:#EEF0F4;border-radius:99px;overflow:hidden}
+.r-bar-fill{height:100%;border-radius:99px}
+.r-callout{padding:13px 15px;border-radius:10px;margin:8px 0;font-size:12px}
+.r-callout.good{background:#F0FDF4;border:1px solid #DCFCE7;color:#166534}
+.r-callout b{display:block;margin-bottom:4px}.r-callout span{color:#4B5563}
+.r-priority{display:grid;grid-template-columns:32px 1fr;gap:12px;padding:14px 0;border-bottom:1px solid #E5E7EB}
+.r-priority-num{width:30px;height:30px;background:#11152E;color:#FFD700;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+.r-priority h4{margin:0 0 4px;font-size:14px}.r-priority p{margin:0;color:#6B7280;font-size:11px}.r-answer-note{font-size:10px;color:#9A6B00;margin-top:7px}
+.r-response{border:1px solid #E5E7EB;border-radius:10px;padding:13px;margin:9px 0;font-size:11px;line-height:1.55}
+.r-response-head{display:flex;justify-content:space-between;margin-bottom:9px;font-size:12px}
+.r-response div:not(.r-response-head){color:#4B5563;margin:7px 0}.r-response span{color:#11152E;font-weight:800}
+.r-clean-footer{margin-top:30px;padding-top:12px;border-top:1px solid #E5E7EB;color:#9CA3AF;font-size:9px;text-align:center}
+@media(max-width:640px){.r-mini-grid{grid-template-columns:1fr 1fr}.r-bar-row{grid-template-columns:100px 1fr 35px}}
+
+.lead-answer-block{border:1px solid var(--border);border-radius:10px;padding:11px;margin:8px 0;font-size:11px;line-height:1.5}.lead-answer-block>b{display:block;font-size:12px;margin-bottom:6px;color:var(--navy)}.lead-answer-block strong{color:#8A6B00;display:inline-block;margin-top:3px}
+
+/* v3 restyle */
+body{background:#F5F6FA;}
+.topbar{background:linear-gradient(120deg,#11152E 0%,#1D2347 100%);border-radius:18px;padding:22px 26px;margin-bottom:24px;box-shadow:0 10px 30px rgba(17,21,46,.12);}
+.topbar .eyebrow{color:#FFD700;}
+.topbar h1{color:#fff;}
+.topbar .sub{color:#B7BBD6;}
+.topbar button{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff;}
+.topbar button:hover{background:rgba(255,255,255,.16);}
+.topbar button.primary{background:#FFD700;color:#11152E;border-color:#FFD700;font-weight:800;}
+.topbar button.primary:hover{background:#F5C500;}
+.topbar button.accent{background:#fff;color:#11152E;border-color:#fff;}
+.tabs{background:#fff;border-radius:12px;border:1px solid var(--border);padding:4px;display:inline-flex;gap:2px;box-shadow:0 2px 8px rgba(17,21,46,.03);}
+.tab{border-radius:9px;padding:9px 18px;}
+.tab.active{background:#11152E;color:#FFD700;border-bottom:none;}
+.card{box-shadow:0 2px 10px rgba(17,21,46,.04);border-radius:14px;}
+.summary-bar{background:linear-gradient(120deg,#11152E 0%,#1D2347 100%);border-radius:16px;}
+.live-chart-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:16px;box-shadow:0 2px 10px rgba(17,21,46,.04);}
+.live-chart-card h2{margin:0 0 4px;font-size:15px;font-weight:800;color:#11152E;}
+.live-chart-card p{margin:0 0 14px;font-size:12px;color:var(--gray);}
+.live-chart-wrap{max-width:420px;margin:0 auto;}
+.admin-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.admin-toolbar input[type=text]{flex:1;min-width:180px;font-family:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:#FAFAFA;}
+.admin-toolbar select{font-family:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:#FAFAFA;}
+.admin-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+.chart-box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:0 2px 10px rgba(17,21,46,.04);}
+.chart-box h3{margin:0 0 10px;font-size:12px;font-weight:800;color:#11152E;text-transform:uppercase;letter-spacing:.5px;}
+.chart-box-canvas-wrap{height:200px;position:relative;}
+.stat-pill{background:linear-gradient(120deg,#11152E 0%,#1D2347 100%);color:#fff;border-radius:12px;padding:14px 18px;min-width:130px;box-shadow:0 4px 14px rgba(17,21,46,.1);}
+.stat-pill b{display:block;font-size:22px;font-weight:800;}
+.stat-pill span{font-size:10px;color:#B7BBD6;text-transform:uppercase;letter-spacing:.5px;}
+@media(max-width:640px){.admin-charts{grid-template-columns:1fr;}}
+
+/* ---- Autosave status + toast ---- */
+.save-status{font-size:11px;color:#B7BBD6;display:flex;align-items:center;gap:6px;margin-right:4px;}
+.save-status .dot{width:7px;height:7px;border-radius:50%;background:#9CA3AF;flex-shrink:0;}
+.save-status.saving .dot{background:#FFD700;animation:pulse 1s infinite ease-in-out;}
+.save-status.saved .dot{background:#22C55E;}
+.save-status.error .dot{background:#EF4444;}
+.save-status.error{color:#FCA5A5;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+#toastWrap{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;width:100%;max-width:420px;padding:0 16px;pointer-events:none;}
+.toast{background:#11152E;color:#fff;border-radius:10px;padding:12px 16px;font-size:13px;box-shadow:0 8px 24px rgba(17,21,46,.25);border-left:4px solid #FFD700;animation:toastIn .18s ease-out;}
+.toast.error{border-left-color:#EF4444;}
+.toast.success{border-left-color:#22C55E;}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---- Submit section ---- */
+.submit-section{background:#fff;border:1px solid var(--border);border-radius:16px;padding:24px;margin:20px 0;text-align:center;}
+.submit-section h3{margin:0 0 6px;font-size:16px;font-weight:800;color:#11152E;}
+.submit-section p{margin:0 0 16px;font-size:12px;color:var(--gray);}
+#submitAuditBtn{background:#11152E;color:#FFD700;font-weight:800;padding:13px 30px;font-size:14px;border-radius:10px;border:none;}
+#submitAuditBtn:hover{background:#1D2347;}
+.submitted-flag{display:inline-flex;align-items:center;gap:6px;background:#F0FDF4;color:#15803D;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;margin-bottom:12px;}
+
+/* ---- Mobile responsiveness ---- */
+@media(max-width:640px){
+  .app{padding:16px 12px 60px;}
+  .topbar{padding:16px 16px;flex-direction:column;align-items:stretch;}
+  .brand h1{font-size:19px;}
+  .actions{width:100%;justify-content:flex-start;}
+  .actions button{flex:1 1 auto;padding:10px 8px;font-size:12px;}
+  .tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;}
+  .tab{padding:9px 12px;font-size:12px;white-space:nowrap;}
+  .summary-bar{padding:16px 18px;flex-direction:column;align-items:flex-start;gap:10px;}
+  .summary-score .num{font-size:30px;}
+  .card{padding:16px;}
+  .pillar-head{padding:14px;}
+  .pillar-name{font-size:14px;}
+  .pillar-desc{font-size:11px;}
+  .pillar-right{gap:8px;}
+  .score-badge{font-size:11px;padding:3px 9px;min-width:44px;}
+  .aor-question{grid-template-columns:24px 1fr;}
+  .q-text{font-size:13px;}
+  .saved-item{flex-direction:column;align-items:flex-start;gap:10px;}
+  .saved-item > div:last-child{width:100%;justify-content:flex-start;flex-wrap:wrap;}
+  .admin-toolbar{flex-direction:column;align-items:stretch;}
+  .admin-toolbar input[type=text], .admin-toolbar select, .admin-toolbar button{width:100%;}
+  .stat-pill{flex:1 1 auto;min-width:100px;padding:12px 14px;}
+  .login-card{padding:26px 20px;}
+  #leadDetail .detail-card{padding:18px;max-height:90vh;}
+  .submit-section{padding:18px;}
+  #submitAuditBtn{width:100%;}
+  .r-mini-grid{grid-template-columns:1fr 1fr;}
+  .report-cover-score span{font-size:52px;}
+}
+@media(max-width:400px){
+  .actions{flex-wrap:wrap;}
+  .actions button{flex:1 1 45%;}
+}
+</style>
+</head>
+<body>
+
+<div id="toastWrap"></div>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <span class="eyebrow">Agency Operations Readiness™</span>
+    <h1 id="authTitle">Sign in</h1>
+    <div class="sub" id="authSub">Sign in to your Agency Operations Readiness workspace.</div>
+    <div class="field">
+      <label>Email</label>
+      <input id="loginEmail" type="email" autocomplete="email" placeholder="you@agency.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <button class="primary" id="loginBtn" style="width:100%;">Sign in</button>
+    <button id="googleBtn" style="width:100%;margin-top:8px;">Continue with Google</button>
+    <div class="login-error" id="loginError"></div>
+    <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+      <a href="#" id="toggleAuth" style="font-size:12px;color:var(--blue);text-decoration:underline;">New here? Create a free account</a>
+      <a href="#" id="forgotLink" style="font-size:12px;color:var(--gray);text-decoration:underline;">Forgot password?</a>
+    </div>
+  </div>
+</div>
+
+<div id="appRoot">
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow">Ikram Khan, Agency Fulfillment Partner</span>
+      <h1>Agency Operations Readiness™</h1>
+      <span class="sub">Assess your agency operations and generate your readiness report</span>
+    </div>
+    <div class="actions">
+      <span class="save-status" id="saveStatus"><span class="dot"></span><span id="saveStatusText">Not saved yet</span></span>
+      <button id="newBtn">New audit</button>
+      <button id="saveBtn" class="primary">Save audit</button>
+      <button id="reportBtn" class="accent">Generate report</button>
+      <button id="signOutBtn" class="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    This copy isn't connected to a database yet, so saved audits won't sync across devices. Open the file, find <code>FIREBASE_CONFIG</code> near the bottom, and paste in your own Firebase project keys. See the setup guide for the exact steps.
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="builder">Audit builder</div>
+    <div class="tab" data-tab="saved">Saved audits</div><div class="tab" data-tab="admin" id="adminTab" style="display:none;">My leads</div>
+  </div>
+
+  <div id="builder">
+    <div class="summary-bar">
+      <div class="summary-score">
+        <span class="num" id="totalScore">0</span>
+        <span class="denom">/ 70</span>
+      </div>
+      <span class="summary-level lvl-fragile" id="levelBadge">Not scored</span>
+      <div style="font-size:12px;color:#D1D5DB;">Agency Readiness Index™, calculated automatically from all 7 pillars</div>
+    </div>
+
+    <div class="card">
+      <h2>Agency details</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>Agency name</label>
+          <input id="agencyName" placeholder="e.g. Bright Path Marketing">
+        </div>
+        <div class="field">
+          <label>Website / LinkedIn</label>
+          <input id="agencyLink" placeholder="e.g. linkedin.com/company/...">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Owner / contact name</label>
+          <input id="ownerName" placeholder="e.g. Brandon Lee">
+        </div>
+        <div class="field">
+          <label>Audit date</label>
+          <input id="auditDate" type="date">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Website</label>
+          <input id="website" type="url" placeholder="https://youragency.com">
+        </div>
+        <div class="field">
+          <label>LinkedIn profile / company</label>
+          <input id="linkedin" type="url" placeholder="https://linkedin.com/in/...">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Team size</label>
+          <select id="teamSize">
+            <option value="">Select</option>
+            <option>Solo</option>
+            <option>2–5</option>
+            <option>6–10</option>
+            <option>11–20</option>
+            <option>21–50</option>
+            <option>51+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Active clients</label>
+          <select id="clientCount">
+            <option value="">Select</option>
+            <option>1–5</option>
+            <option>6–10</option>
+            <option>11–25</option>
+            <option>26–50</option>
+            <option>51–100</option>
+            <option>100+</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Average hourly cost of team time ($)</label>
+          <input id="hourlyRate" type="number" min="0" placeholder="e.g. 40">
+        </div>
+        <div class="field">
+          <label>Average monthly revenue per client ($)</label>
+          <input id="avgClientValue" type="number" min="0" placeholder="e.g. 1500">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);margin-top:2px;">
+        Your email comes from your signed-in account. Your information is used to save your assessment and generate your report.
+      </div>
+    </div>
+
+    <div class="assessment-intro">
+      <div class="assessment-kicker">AOR • 2.0 assessment</div>
+      <h2>14 questions. 7 areas. One clear picture of your operations.</h2>
+      <p>Each area has only two high-signal questions. Answer based on how your agency operates today — not how you want it to operate.</p>
+      <div class="assessment-progress"><div class="assessment-progress-bar" id="assessmentProgressBar"></div></div>
+      <div style="margin-top:7px;font-size:10px;color:#C8CCDD;"><span id="answeredCount">0</span> of 14 answered</div>
+    </div>
+
+    <div class="live-chart-card">
+      <h2>Live readiness snapshot</h2>
+      <p>Updates automatically as you answer each question.</p>
+      <div class="live-chart-wrap"><canvas id="liveRadarChart" height="260"></canvas></div>
+    </div>
+<div id="pillarsContainer"></div>
+
+    <div class="submit-section" id="submitSection">
+      <div id="submittedFlag"></div>
+      <h3>Ready to submit your audit?</h3>
+      <p>This saves your answers to your dashboard and marks the audit as submitted. You can still keep editing and re-submit later.</p>
+      <button id="submitAuditBtn">Submit audit</button>
+    </div>
+  </div>
+
+  <div id="saved" style="display:none;">
+    <div class="card">
+      <h2>Saved audits</h2>
+      <div class="saved-list" id="savedList"></div>
+    </div>
+  </div>
+
+  <div id="admin" style="display:none;">
+    <div class="card">
+      <h2>Admin dashboard</h2>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:14px;">
+        Private admin view. Every submitted or saved audit appears here with the user's email and agency details.
+      </div>
+      <div id="adminStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;"></div>
+      <div class="admin-charts">
+        <div class="chart-box">
+          <h3>Average score by pillar</h3>
+          <div class="chart-box-canvas-wrap"><canvas id="adminPillarChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <h3>Lead readiness breakdown</h3>
+          <div class="chart-box-canvas-wrap"><canvas id="adminLevelChart"></canvas></div>
+        </div>
+      </div>
+      <div class="admin-toolbar">
+        <input type="text" id="adminSearch" placeholder="Search by agency, owner or email...">
+        <select id="adminSort">
+          <option value="recent">Sort: most recent</option>
+          <option value="score_desc">Sort: highest score</option>
+          <option value="score_asc">Sort: lowest score</option>
+          <option value="name">Sort: agency name</option>
+        </select>
+        <button id="exportCsvBtn">Export CSV</button>
+      </div>
+      <div id="adminList" class="saved-list"></div>
+    </div>
+  </div>
+
+  <div id="report">
+    <div class="report-page" id="reportContent"></div>
+  </div>
+
+</div>
+</div>
+
+<div id="leadDetail">
+  <div class="detail-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <h2 id="leadDetailTitle" style="margin:0;">Lead details</h2>
+      <button id="closeLeadDetail">Close</button>
+    </div>
+    <div id="leadDetailContent"></div>
+  </div>
+</div>
+
+<script>
+const PILLARS = [
+  {name:"Client Acquisition", desc:"Predictable demand without depending on one source",
+   manualQ:"Roughly how many hours per week does the team spend on manual outreach or lead chasing here?",
+   questions:[
+     "We have a repeatable way to generate qualified opportunities every month.",
+     "Our pipeline is visible and predictable enough to plan delivery and hiring ahead."
+   ]},
+  {name:"Sales", desc:"A sales process that moves without founder chasing",
+   manualQ:"Roughly how many hours per week go into manual follow-ups or chasing leads through the pipeline?",
+   questions:[
+     "Every lead has a clear next step and follow-up happens consistently.",
+     "Our CRM and sales pipeline show exactly what is happening without manual checking."
+   ]},
+  {name:"Client Onboarding", desc:"A smooth path from signed client to live delivery",
+   manualQ:"Roughly how many hours per week does onboarding a new client take the founder or team manually?",
+   questions:[
+     "Every new client follows the same documented onboarding path.",
+     "A new client can get started without the founder personally coordinating every step."
+   ]},
+  {name:"Service Delivery", desc:"Consistent execution, ownership and accountability",
+   manualQ:"Roughly how many hours per week are lost to manual delivery work, status-chasing or rework?",
+   questions:[
+     "Every client has a clear owner, deadlines and a central place for delivery work.",
+     "Delivery quality stays consistent even when the founder is not involved."
+   ]},
+  {name:"Operations", desc:"Systems, SOPs and automation that remove repetitive work",
+   manualQ:"Roughly how many hours per week go into repetitive admin work that could be automated?",
+   questions:[
+     "Our important recurring processes are documented and actually followed by the team.",
+     "The systems and automations we rely on are organized, monitored and easy to troubleshoot."
+   ]},
+  {name:"Client Experience", desc:"Visibility, communication and retention",
+   manualQ:"Roughly how many hours per week go into manually pulling reports or answering client status questions?",
+   questions:[
+     "Clients receive consistent communication and reporting without having to chase us.",
+     "We have a clear way to spot unhappy, at-risk or renewal-ready clients early."
+   ]},
+  {name:"Growth", desc:"Capacity to grow without creating founder dependency",
+   manualQ:"Roughly how many hours per week does the founder spend on tasks someone else could own?",
+   questions:[
+     "The agency could handle significantly more clients without the founder becoming the bottleneck.",
+     "Delegation, hiring and decision-making are structured for the next stage of growth."
+   ]}
+];
+
+let state = {
+  id: null, submitted: false, submittedAt: "", createdAt: "",
+  agencyName: "", agencyLink: "", ownerName: "", auditDate: "",
+  website: "", linkedin: "", teamSize: "", clientCount: "",
+  hourlyRate: "", avgClientValue: "",
+  pillars: PILLARS.map(p => ({
+    score: 6, evidence: ["",""], answers: [3,3], manualHours: "", recommendation: "", priority: "Medium",
+    timeSaved: "", costSaved: "", open: false
+  }))
+};
+
+// ---- Toast notifications ----
+function showToast(message, type){
+  const wrap = document.getElementById('toastWrap');
+  if(!wrap) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = message;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .25s'; setTimeout(() => el.remove(), 250); }, 3200);
+}
+
+// ---- Save status indicator ----
+function setSaveStatus(mode, text){
+  const box = document.getElementById('saveStatus');
+  const txt = document.getElementById('saveStatusText');
+  if(!box || !txt) return;
+  box.className = 'save-status' + (mode ? ' ' + mode : '');
+  txt.textContent = text;
+}
+
+// ---- Autosave (debounced) ----
+let autosaveTimer = null;
+function scheduleAutosave(){
+  if(!state.agencyName) return; // nothing meaningful to save yet
+  const user = auth && auth.currentUser;
+  if(!user) return;
+  setSaveStatus('saving', 'Saving…');
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(async () => {
+    const ok = await persistAudit(true);
+    if(ok){
+      setSaveStatus('saved', 'Saved just now');
+    }
+  }, 1000);
+}
+
+let liveRadarChart = null;
+function updateLiveRadarChart(){
+  const canvas = document.getElementById('liveRadarChart');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const labels = PILLARS.map(p => p.name);
+  const data = state.pillars.map(p => p.score);
+  if(liveRadarChart){
+    liveRadarChart.data.datasets[0].data = data;
+    liveRadarChart.update();
+    return;
+  }
+  liveRadarChart = new Chart(canvas.getContext('2d'), {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Score / 10',
+        data,
+        backgroundColor: 'rgba(255,215,0,.18)',
+        borderColor: '#11152E',
+        pointBackgroundColor: '#11152E',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { r: { min:0, max:10, ticks:{ stepSize:2, backdropColor:'transparent' }, pointLabels:{ font:{ size:10 } } } },
+      plugins: { legend: { display:false } }
+    }
+  });
+}
+
+function riskColor(score){
+  if(score >= 8) return {cls:'badge-green', label:'Strong'};
+  if(score >= 5) return {cls:'badge-amber', label:'Developing'};
+  return {cls:'badge-red', label:'At risk'};
+}
+
+function answerLabel(v){
+  return ({1:"Not in place",2:"Mostly manual",3:"Partly in place",4:"Mostly consistent",5:"Strong & repeatable"})[v] || "Not answered";
+}
+function renderPillars(){
+  const container = document.getElementById('pillarsContainer');
+  container.innerHTML = '';
+  PILLARS.forEach((p, i) => {
+    const st = state.pillars[i];
+    const answered = st.answers.filter(v => Number(v) >= 1).length;
+    const avg = (st.answers.reduce((a,v)=>a+(Number(v)||0),0) / 2);
+    st.score = Math.round(avg * 2);
+    const rc = riskColor(st.score);
+    const el = document.createElement('div');
+    el.className = 'pillar premium-pillar';
+    el.innerHTML = `
+      <div class="pillar-head premium-head" data-idx="${i}">
+        <div class="pillar-title">
+          <div class="pillar-num">${String(i+1).padStart(2,'0')}</div>
+          <div>
+            <div class="pillar-name">${p.name}</div>
+            <div class="pillar-desc">${p.desc}</div>
+          </div>
+        </div>
+        <div class="pillar-right">
+          <span class="question-count">${answered}/2</span>
+          <span class="score-badge ${rc.cls}">${st.score}/10</span>
+          <span class="chevron">${st.open ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      <div class="pillar-body ${st.open ? 'open' : ''}">
+        <div class="question-helper">Rate what is true <b>today</b>. Be honest — the value of the assessment comes from the gap, not the score.</div>
+        ${p.questions.map((q, qi) => `
+          <div class="aor-question">
+            <div class="q-number">0${qi+1}</div>
+            <div class="q-content">
+              <div class="q-text">${q}</div>
+              <div class="answer-grid" data-idx="${i}" data-qi="${qi}">
+                ${[1,2,3,4,5].map(v => `
+                  <button type="button" class="answer-btn ${Number(st.answers[qi])===v?'selected':''}" data-value="${v}">
+                    <span>${v}</span><small>${answerLabel(v)}</small>
+                  </button>`).join('')}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+        <div class="aor-question">
+          <div class="q-number">03</div>
+          <div class="q-content">
+            <div class="q-text">${p.manualQ}</div>
+            <input type="number" min="0" step="0.5" class="manual-hours-input" data-idx="${i}"
+              placeholder="Hours per week" value="${st.manualHours || ''}"
+              style="width:160px;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid #E1E4EC;border-radius:8px;background:#FAFAFA;">
+            <span style="font-size:11px;color:#9CA3AF;margin-left:8px;">hrs / week (optional — used for the time & revenue estimate in your report)</span>
+          </div>
+        </div>
+        <div class="auto-insight">
+          <span>Assessment insight</span>
+          <b>${st.score >= 8 ? 'Strong foundation' : st.score >= 6 ? 'Working, but has room to tighten' : st.score >= 4 ? 'Operational risk is showing' : 'Immediate attention recommended'}</b>
+        </div>
+      </div>`;
+    container.appendChild(el);
+  });
+
+  container.querySelectorAll('.pillar-head').forEach(h => {
+    h.addEventListener('click', () => {
+      const idx = +h.dataset.idx;
+      state.pillars[idx].open = !state.pillars[idx].open;
+      renderPillars();
+    });
+  });
+
+  container.querySelectorAll('.answer-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wrap = btn.closest('.answer-grid');
+      const idx = +wrap.dataset.idx, qi = +wrap.dataset.qi;
+      state.pillars[idx].answers[qi] = +btn.dataset.value;
+      state.pillars[idx].evidence[qi] = answerLabel(+btn.dataset.value);
+      state.pillars[idx].score = Math.round(
+        (state.pillars[idx].answers.reduce((a,v)=>a+(Number(v)||0),0)/2)*2
+      );
+      state.pillars[idx].open = true;
+      updateSummary();
+      renderPillars();
+      scheduleAutosave();
+    });
+  });
+
+  container.querySelectorAll('.manual-hours-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', e => {
+      const idx = +e.target.dataset.idx;
+      state.pillars[idx].manualHours = e.target.value;
+      updateSummary();
+      scheduleAutosave();
+    });
+  });
+}
+function updateSummary(){
+  state.pillars.forEach(p => {
+    p.score = Math.round(((p.answers || [3,3]).reduce((a,v)=>a+(Number(v)||0),0)/2)*2);
+  });
+  const total = state.pillars.reduce((s, p) => s + p.score, 0);
+  document.getElementById('totalScore').textContent = total;
+  const answered = state.pillars.reduce((s,p)=>s+(p.answers||[]).filter(v=>Number(v)>=1).length,0);
+  const pctAnswered = Math.round(answered/14*100);
+  const pb=document.getElementById('assessmentProgressBar');
+  if(pb) pb.style.width=pctAnswered+'%';
+  const ac=document.getElementById('answeredCount');
+  if(ac) ac.textContent=answered;
+  const pct = total / 70;
+  const badge = document.getElementById('levelBadge');
+  if(pct >= 0.8){ badge.className='summary-level lvl-scalable'; badge.textContent='Scalable'; }
+  else if(pct >= 0.6){ badge.className='summary-level lvl-developing'; badge.textContent='Developing'; }
+  else if(pct >= 0.4){ badge.className='summary-level lvl-atrisk'; badge.textContent='At risk'; }
+  else { badge.className='summary-level lvl-fragile'; badge.textContent='Fragile'; }
+  updateLiveRadarChart();
+}
+
+document.getElementById('agencyName').addEventListener('input', e => { state.agencyName = e.target.value; scheduleAutosave(); });
+document.getElementById('agencyLink').addEventListener('input', e => { state.agencyLink = e.target.value; scheduleAutosave(); });
+document.getElementById('ownerName').addEventListener('input', e => { state.ownerName = e.target.value; scheduleAutosave(); });
+document.getElementById('auditDate').addEventListener('input', e => { state.auditDate = e.target.value; scheduleAutosave(); });
+document.getElementById('website').addEventListener('input', e => { state.website = e.target.value; scheduleAutosave(); });
+document.getElementById('linkedin').addEventListener('input', e => { state.linkedin = e.target.value; scheduleAutosave(); });
+document.getElementById('teamSize').addEventListener('change', e => { state.teamSize = e.target.value; scheduleAutosave(); });
+document.getElementById('clientCount').addEventListener('change', e => { state.clientCount = e.target.value; scheduleAutosave(); });
+document.getElementById('hourlyRate').addEventListener('input', e => { state.hourlyRate = e.target.value; updateSummary(); scheduleAutosave(); });
+document.getElementById('avgClientValue').addEventListener('input', e => { state.avgClientValue = e.target.value; updateSummary(); scheduleAutosave(); });
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('builder').style.display = t.dataset.tab === 'builder' ? 'block' : 'none';
+    document.getElementById('saved').style.display = t.dataset.tab === 'saved' ? 'block' : 'none';
+    document.getElementById('admin').style.display = t.dataset.tab === 'admin' ? 'block' : 'none';
+    if(t.dataset.tab === 'saved') loadSavedList();
+    if(t.dataset.tab === 'admin') loadAdminLeads();
+  });
+});
+
+document.getElementById('newBtn').addEventListener('click', () => {
+  if(!confirm('Start a new audit? Unsaved changes will be lost.')) return;
+  state = {
+    id: null, submitted: false, submittedAt: "", createdAt: "",
+    agencyName:"", agencyLink:"", ownerName:"", auditDate:"",
+    website:"", linkedin:"", teamSize:"", clientCount:"",
+    hourlyRate:"", avgClientValue:"",
+    pillars: PILLARS.map(p => ({ score:6, evidence:["",""], answers:[3,3], manualHours:"", recommendation:"", priority:"Medium", timeSaved:"", costSaved:"", open:false }))
+  };
+  renderSubmittedFlag();
+  document.getElementById('agencyName').value = "";
+  document.getElementById('agencyLink').value = "";
+  document.getElementById('ownerName').value = "";
+  document.getElementById('auditDate').value = "";
+  document.getElementById('website').value = "";
+  document.getElementById('linkedin').value = "";
+  document.getElementById('teamSize').value = "";
+  document.getElementById('clientCount').value = "";
+  document.getElementById('hourlyRate').value = "";
+  document.getElementById('avgClientValue').value = "";
+  renderPillars();
+  updateSummary();
+  setSaveStatus('', 'Not saved yet');
+});
+
+// ---- Firebase setup ----
+// 1. Go to https://console.firebase.google.com, create a free project
+// 2. Add a Web App inside that project, copy the config object it gives you
+// 3. Paste it below, replacing the placeholder values
+// 4. In the Firebase console, go to Firestore Database, create a database (test mode is fine to start)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCkt4mHvmilsUHCkb6a9qnpkZVm34kZp6E",
+  authDomain: "agency-operations-readiness.firebaseapp.com",
+  projectId: "agency-operations-readiness",
+  storageBucket: "agency-operations-readiness.firebasestorage.app",
+  messagingSenderId: "835254519",
+  appId: "1:835254519:web:a93dcbec575619d982bbf2"
+};
+
+let db = null;
+let auth = null;
+let firebaseReady = false;
+try{
+  if(FIREBASE_CONFIG.apiKey !== "PASTE_YOUR_API_KEY"){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    firebaseReady = true;
+  } else {
+    document.getElementById('setupBanner').style.display = 'block';
+  }
+}catch(err){
+  console.error('Firebase init failed', err);
+  document.getElementById('setupBanner').style.display = 'block';
+}
+
+const AUDITS_COLLECTION = 'aor_audits';
+const ADMIN_UID = '05kgLuKkPRTvoWqBjS5feATZZxG2';
+// ---- Auth gating ----
+if(firebaseReady){
+  auth.onAuthStateChanged(user => {
+    if(user){
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appRoot').style.display = 'block';
+      document.getElementById('adminTab').style.display = isAdmin() ? 'block' : 'none';
+      loadSavedList();
+      updateSummary();
+      setSaveStatus('', 'Not saved yet');
+    } else {
+      document.getElementById('adminTab').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('appRoot').style.display = 'none';
+      // Stop realtime listeners so they don't keep firing permission errors after sign-out.
+      if(typeof savedListUnsub !== 'undefined' && savedListUnsub){ savedListUnsub(); savedListUnsub = null; }
+      if(typeof adminUnsub !== 'undefined' && adminUnsub){ adminUnsub(); adminUnsub = null; }
+    }
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    if(!email || !password){
+      errEl.textContent = 'Enter your email and password.';
+      return;
+    }
+    try{
+      if(authMode === 'signup'){
+        if(password.length < 6){
+          errEl.textContent = 'Password must be at least 6 characters.';
+          return;
+        }
+        await auth.createUserWithEmailAndPassword(email, password);
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+    }catch(err){
+      console.error(err);
+      const messages = {
+        'auth/email-already-in-use':'An account with this email already exists. Sign in instead.',
+        'auth/invalid-email':'Enter a valid email address.',
+        'auth/weak-password':'Password must be at least 6 characters.',
+        'auth/invalid-credential':'Email or password is incorrect.',
+        'auth/user-not-found':'No account found. Create a free account first.',
+        'auth/wrong-password':'Email or password is incorrect.'
+      };
+      errEl.textContent = messages[err.code] || (authMode === 'signup' ? 'Could not create the account. Please try again.' : 'Sign in failed. Please check your email and password.');
+    }
+  });
+
+  let authMode = 'login';
+  const authTitle = document.getElementById('authTitle');
+  const authSub = document.getElementById('authSub');
+  const toggleAuth = document.getElementById('toggleAuth');
+  const loginBtn = document.getElementById('loginBtn');
+  const forgotLink = document.getElementById('forgotLink');
+
+  function setAuthMode(mode){
+    authMode = mode;
+    const signup = mode === 'signup';
+    authTitle.textContent = signup ? 'Create your account' : 'Sign in';
+    authSub.textContent = signup ? 'Create a free account to save your AOR audits and access them from any device.' : 'Sign in to your Agency Operations Readiness workspace.';
+    loginBtn.textContent = signup ? 'Create free account' : 'Sign in';
+    toggleAuth.textContent = signup ? 'Already have an account? Sign in' : 'New here? Create a free account';
+    forgotLink.style.display = signup ? 'none' : 'inline';
+    document.getElementById('loginPassword').setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+    document.getElementById('loginError').textContent = '';
+  }
+
+  toggleAuth.addEventListener('click', (e) => {
+    e.preventDefault();
+    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+  });
+
+  document.getElementById('googleBtn').addEventListener('click', async () => {
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try{
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+    }catch(err){
+      console.error(err);
+      if(err.code !== 'auth/popup-closed-by-user') errEl.textContent = 'Google sign-in could not be completed. Please try again.';
+    }
+  });
+
+  document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') document.getElementById('loginBtn').click();
+  });
+
+  document.getElementById('forgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('loginError');
+    errEl.style.color = 'var(--red)';
+    const email = document.getElementById('loginEmail').value.trim();
+    if(!email){
+      errEl.textContent = 'Type your email above first, then click "Forgot password?" again.';
+      return;
+    }
+    try{
+      await auth.sendPasswordResetEmail(email);
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Reset link sent. Check that inbox (and spam folder) for an email from Firebase.';
+    }catch(err){
+      errEl.style.color = 'var(--red)';
+      errEl.textContent = 'Could not send reset email. Double check the email address is correct.';
+    }
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', () => {
+    auth.signOut();
+  });
+} else {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+}
+
+
+function isAdmin(){
+  const user = auth && auth.currentUser;
+  return !!user && user.uid === ADMIN_UID;
+}
+function esc(v){
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+let adminLeadsCache = [];
+let adminPillarChart = null;
+let adminLevelChart = null;
+
+let adminUnsub = null;
+function loadAdminLeads(){
+  const list = document.getElementById('adminList');
+  const stats = document.getElementById('adminStats');
+  if(!isAdmin()){
+    list.innerHTML = '<div class="empty">Admin access only.</div>';
+    stats.innerHTML = '';
+    return;
+  }
+  list.innerHTML = '<div class="empty">Loading leads...</div>';
+  if(adminUnsub){ adminUnsub(); adminUnsub = null; }
+  // Realtime listener: every audit any user saves/submits shows up here immediately, no refresh needed.
+  adminUnsub = db.collection(AUDITS_COLLECTION).onSnapshot(snap => {
+    const docs = snap.docs.map(d => ({id:d.id,data:d.data()}))
+      .sort((a,b) => String(b.data.savedAt||'').localeCompare(String(a.data.savedAt||'')));
+    adminLeadsCache = docs;
+    renderAdminStats(docs);
+    renderAdminCharts(docs);
+    applyAdminFilters();
+  }, err => {
+    console.error(err);
+    const detail = err && (err.code || err.message) ? (err.code || err.message) : 'unknown error';
+    list.innerHTML = '<div class="empty">Could not load leads (' + esc(detail) + '). Check Firestore security rules for the admin UID.</div>';
+    stats.innerHTML = '';
+  });
+}
+
+function renderAdminStats(docs){
+  const stats = document.getElementById('adminStats');
+  const emailed = docs.filter(x => x.data.userEmail);
+  const scores = docs.map(x => (x.data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0));
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+  stats.innerHTML =
+    '<div class="stat-pill"><b>'+emailed.length+'</b><span>Leads with email</span></div>'+
+    '<div class="stat-pill"><b>'+avg+'/70</b><span>Average score</span></div>'+
+    '<div class="stat-pill"><b>'+docs.length+'</b><span>Total audits</span></div>';
+}
+
+function renderAdminCharts(docs){
+  if(typeof Chart === 'undefined') return;
+  const pillarAverages = PILLARS.map((p,i) => {
+    const vals = docs.map(x => Number((x.data.pillars||[])[i]?.score)||0).filter(v=>v>0 || true);
+    const withData = docs.filter(x => (x.data.pillars||[])[i]);
+    if(!withData.length) return 0;
+    return Math.round(withData.reduce((s,x)=>s+(Number((x.data.pillars||[])[i]?.score)||0),0)/withData.length);
+  });
+  const pillarCtx = document.getElementById('adminPillarChart');
+  if(pillarCtx){
+    if(adminPillarChart) adminPillarChart.destroy();
+    adminPillarChart = new Chart(pillarCtx.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: PILLARS.map(p=>p.name),
+        datasets: [{ data: pillarAverages, backgroundColor: '#FFD700', borderRadius: 5 }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: { y:{ min:0, max:10, ticks:{ stepSize:2 } }, x:{ ticks:{ font:{size:9}, maxRotation:35, minRotation:35 } } },
+        plugins: { legend:{ display:false } }
+      }
+    });
+  }
+  const buckets = { Strong:0, Developing:0, 'At risk':0, Fragile:0 };
+  docs.forEach(x => {
+    const total = (x.data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+    const pct = total/70;
+    if(pct>=0.8) buckets.Strong++;
+    else if(pct>=0.6) buckets.Developing++;
+    else if(pct>=0.4) buckets['At risk']++;
+    else buckets.Fragile++;
+  });
+  const levelCtx = document.getElementById('adminLevelChart');
+  if(levelCtx){
+    if(adminLevelChart) adminLevelChart.destroy();
+    adminLevelChart = new Chart(levelCtx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(buckets),
+        datasets: [{ data: Object.values(buckets), backgroundColor: ['#15803D','#2563EB','#B45309','#B91C1C'] }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{size:10}, boxWidth:10 } } } }
+    });
+  }
+}
+
+function renderAdminList(docs){
+  const list = document.getElementById('adminList');
+  if(!docs.length){
+    list.innerHTML = '<div class="empty">No audits yet.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  docs.forEach(({id,data}) => {
+    const total = (data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+    const item = document.createElement('div');
+    item.className = 'saved-item';
+    item.innerHTML =
+      '<div style="min-width:0;"><div style="font-weight:700;font-size:14px;">'+esc(data.agencyName||'Untitled agency')+'</div>'+
+      '<div class="meta">'+esc(data.userEmail||'No email saved')+
+      (data.ownerName?' · '+esc(data.ownerName):'')+
+      (data.teamSize?' · Team '+esc(data.teamSize):'')+
+      (data.auditDate?' · '+esc(data.auditDate):'')+'</div></div>'+
+      '<div style="display:flex;gap:6px;align-items:center;"><span class="score-badge '+(total>=56?'badge-green':total>=35?'badge-amber':'badge-red')+'">'+total+'/70</span><button class="leadOpenBtn" data-id="'+esc(id)+'">View</button></div>';
+    list.appendChild(item);
+  });
+  list.querySelectorAll('.leadOpenBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const doc = await db.collection(AUDITS_COLLECTION).doc(btn.dataset.id).get();
+      if(doc.exists) showLeadDetail(btn.dataset.id, doc.data());
+    });
+  });
+}
+
+function applyAdminFilters(){
+  const q = (document.getElementById('adminSearch').value || '').toLowerCase().trim();
+  const sortBy = document.getElementById('adminSort').value;
+  let docs = adminLeadsCache.filter(({data}) => {
+    if(!q) return true;
+    return (data.agencyName||'').toLowerCase().includes(q) ||
+           (data.ownerName||'').toLowerCase().includes(q) ||
+           (data.userEmail||'').toLowerCase().includes(q);
+  });
+  const scoreOf = ({data}) => (data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+  if(sortBy === 'score_desc') docs = docs.slice().sort((a,b)=>scoreOf(b)-scoreOf(a));
+  else if(sortBy === 'score_asc') docs = docs.slice().sort((a,b)=>scoreOf(a)-scoreOf(b));
+  else if(sortBy === 'name') docs = docs.slice().sort((a,b)=>(a.data.agencyName||'').localeCompare(b.data.agencyName||''));
+  else docs = docs.slice().sort((a,b)=>String(b.data.savedAt||'').localeCompare(String(a.data.savedAt||'')));
+  renderAdminList(docs);
+}
+document.getElementById('adminSearch').addEventListener('input', applyAdminFilters);
+document.getElementById('adminSort').addEventListener('change', applyAdminFilters);
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  if(!adminLeadsCache.length){ alert('No leads to export yet.'); return; }
+  const headers = ['Agency','Owner','Email','Website','LinkedIn','Team size','Active clients','Score','Audit date',...PILLARS.map(p=>p.name+' score')];
+  const rows = adminLeadsCache.map(({data}) => {
+    const total = (data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+    const csvSafe = v => '"'+String(v??'').replace(/"/g,'""')+'"';
+    return [
+      csvSafe(data.agencyName), csvSafe(data.ownerName), csvSafe(data.userEmail),
+      csvSafe(data.website), csvSafe(data.linkedin), csvSafe(data.teamSize), csvSafe(data.clientCount),
+      total, csvSafe(data.auditDate),
+      ...PILLARS.map((p,i)=>(data.pillars||[])[i]?.score ?? '')
+    ].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'AOR-leads-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+function showLeadDetail(id,data){
+  const total=(data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+  const weak=(data.pillars||[]).map((p,i)=>({score:Number(p.score)||0,name:PILLARS[i]?.name||'Pillar'})).sort((a,b)=>a.score-b.score).slice(0,3);
+  document.getElementById('leadDetailTitle').textContent=data.agencyName||'Lead details';
+  document.getElementById('leadDetailContent').innerHTML=
+    '<div class="lead-grid">'+
+    '<div><b>Email</b>'+esc(data.userEmail||'Not saved')+'</div>'+
+    '<div><b>Owner</b>'+esc(data.ownerName||'Not provided')+'</div>'+
+    '<div><b>Website</b>'+ (data.website?'<a href="'+esc(data.website)+'" target="_blank" rel="noopener">'+esc(data.website)+'</a>':'Not provided')+'</div>'+
+    '<div><b>LinkedIn</b>'+ (data.linkedin?'<a href="'+esc(data.linkedin)+'" target="_blank" rel="noopener">'+esc(data.linkedin)+'</a>':'Not provided')+'</div>'+
+    '<div><b>Team size</b>'+esc(data.teamSize||'Not provided')+'</div>'+
+    '<div><b>Active clients</b>'+esc(data.clientCount||'Not provided')+'</div>'+
+    '<div><b>AOR score</b>'+total+'/70</div>'+
+    '<div><b>Audit date</b>'+esc(data.auditDate||'Not provided')+'</div>'+
+    '</div><h3 style="margin-bottom:8px;">Priority areas</h3><ul>'+
+    weak.map(x=>'<li>'+esc(x.name)+' — '+x.score+'/10</li>').join('')+
+    '</ul><h3>All responses</h3>'+
+    (data.pillars||[]).map((p,i)=>'<div class="lead-answer-block"><b>'+esc(PILLARS[i]?.name||'Pillar')+' · '+(Number(p.score)||0)+'/10</b>'+
+      '<div>Q1: '+esc(PILLARS[i]?.questions?.[0]||'')+'<br><strong>'+esc(answerLabel((p.answers||[])[0]))+'</strong></div>'+
+      '<div>Q2: '+esc(PILLARS[i]?.questions?.[1]||'')+'<br><strong>'+esc(answerLabel((p.answers||[])[1]))+'</strong></div></div>').join('')+
+    '<div style="font-size:11px;color:var(--gray);margin-top:14px;">Audit ID: '+esc(id)+'</div>';
+  document.getElementById('leadDetail').style.display='flex';
+}
+document.getElementById('closeLeadDetail').addEventListener('click',()=>document.getElementById('leadDetail').style.display='none');
+document.getElementById('leadDetail').addEventListener('click',e=>{if(e.target.id==='leadDetail')e.currentTarget.style.display='none';});
+
+async function persistAudit(silent, markSubmitted){
+  if(!state.agencyName){
+    if(!silent){ showToast('Add an agency name before saving.', 'error'); }
+    setSaveStatus('error', 'Add agency name to save');
+    return false;
+  }
+  if(!firebaseReady){
+    if(!silent) showToast('Connect Firebase first — see the banner at the top for setup steps.', 'error');
+    setSaveStatus('error', 'Not connected');
+    return false;
+  }
+  const user = auth && auth.currentUser;
+  if(!user){
+    if(!silent) showToast('Please sign in first.', 'error');
+    setSaveStatus('error', 'Not signed in');
+    return false;
+  }
+  // Namespace the doc id with the user's uid so two people can never collide on the same id.
+  if(!state.id) state.id = 'audit_' + user.uid.slice(0,8) + '_' + Date.now();
+  const payload = {
+    ...state,
+    userId: user.uid,
+    userEmail: user.email || '',
+    savedAt: new Date().toISOString(),
+    createdAt: state.createdAt || new Date().toISOString()
+  };
+  if(markSubmitted){
+    payload.submitted = true;
+    payload.submittedAt = new Date().toISOString();
+  } else if(state.submitted){
+    payload.submitted = true;
+    payload.submittedAt = state.submittedAt || new Date().toISOString();
+  }
+  try{
+    await db.collection(AUDITS_COLLECTION).doc(state.id).set(payload, { merge: true });
+    state.createdAt = payload.createdAt;
+    if(markSubmitted){ state.submitted = true; state.submittedAt = payload.submittedAt; }
+    setSaveStatus('saved', 'Saved just now');
+    return true;
+  }catch(err){
+    console.error(err);
+    // Surface the real Firebase error (e.g. "permission-denied") instead of a generic message,
+    // since that's almost always a Firestore security-rules issue, not a bug in this page.
+    const detail = err && (err.code || err.message) ? (err.code || err.message) : 'unknown error';
+    setSaveStatus('error', 'Save failed (' + detail + ')');
+    if(!silent) showToast('Could not save: ' + detail + '. Ask the site owner to check Firestore security rules.', 'error');
+    return false;
+  }
+}
+
+async function saveAudit(){
+  const ok = await persistAudit(false);
+  if(ok) showToast('Audit saved.', 'success');
+}
+document.getElementById('saveBtn').addEventListener('click', saveAudit);
+
+async function submitAudit(){
+  if(!state.agencyName){
+    showToast('Add an agency name before submitting.', 'error');
+    return;
+  }
+  const answered = state.pillars.reduce((s,p)=>s+(p.answers||[]).filter(v=>Number(v)>=1).length,0);
+  if(answered < 14 && !confirm('You have only answered '+answered+' of 14 questions. Submit anyway?')) return;
+  const ok = await persistAudit(false, true);
+  if(ok){
+    showToast('Audit submitted — it now appears in your dashboard.', 'success');
+    renderSubmittedFlag();
+    loadSavedList();
+  }
+}
+document.getElementById('submitAuditBtn').addEventListener('click', submitAudit);
+
+function renderSubmittedFlag(){
+  const el = document.getElementById('submittedFlag');
+  if(!el) return;
+  el.innerHTML = state.submitted
+    ? '<div class="submitted-flag">✓ Submitted' + (state.submittedAt ? ' · ' + new Date(state.submittedAt).toLocaleString() : '') + '</div>'
+    : '';
+}
+
+let savedListUnsub = null;
+function loadSavedList(){
+  const list = document.getElementById('savedList');
+  if(!firebaseReady){
+    list.innerHTML = '<div class="empty">Connect Firebase to start saving and syncing audits. See the banner at the top for setup steps.</div>';
+    return;
+  }
+  const user = auth.currentUser;
+  if(!user){
+    list.innerHTML = '<div class="empty">Sign in to see your saved audits.</div>';
+    return;
+  }
+  list.innerHTML = '<div class="empty">Loading...</div>';
+  if(savedListUnsub){ savedListUnsub(); savedListUnsub = null; }
+  // Realtime listener: whatever autosave/submit writes to Firestore appears here immediately.
+  savedListUnsub = db.collection(AUDITS_COLLECTION).where('userId','==',user.uid).onSnapshot(snap => {
+    const docs = snap.docs.map(d => ({id:d.id, data:d.data()}))
+      .sort((a,b) => String(b.data.savedAt||'').localeCompare(String(a.data.savedAt||'')));
+    if(!docs.length){
+      list.innerHTML = '<div class="empty">No saved audits yet. Start filling in the builder — it saves automatically, or click "Save audit" any time.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    docs.forEach(({id,data}) => {
+      const total = (data.pillars||[]).reduce((s,p)=>s+(Number(p.score)||0),0);
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+      item.innerHTML =
+        '<div style="min-width:0;"><div style="font-weight:700;font-size:14px;">'+esc(data.agencyName||'Untitled agency')+(data.submitted?' <span style="font-size:10px;color:#15803D;font-weight:800;">· SUBMITTED</span>':'')+'</div>'+
+        '<div class="meta">'+(data.auditDate?esc(data.auditDate):'No date')+
+        (data.ownerName?' · '+esc(data.ownerName):'')+'</div></div>'+
+        '<div style="display:flex;gap:6px;align-items:center;"><span class="score-badge '+(total>=56?'badge-green':total>=35?'badge-amber':'badge-red')+'">'+total+'/70</span>'+
+        '<button class="loadAuditBtn" data-id="'+esc(id)+'">Load</button>'+
+        '<button class="deleteAuditBtn danger" data-id="'+esc(id)+'">Delete</button></div>';
+      list.appendChild(item);
+    });
+    list.querySelectorAll('.loadAuditBtn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const doc = await db.collection(AUDITS_COLLECTION).doc(btn.dataset.id).get();
+        if(!doc.exists) return;
+        const data = doc.data();
+        state = {
+          id: doc.id, submitted: !!data.submitted, submittedAt: data.submittedAt || "", createdAt: data.createdAt || "",
+          agencyName: data.agencyName || "", agencyLink: data.agencyLink || "",
+          ownerName: data.ownerName || "", auditDate: data.auditDate || "",
+          website: data.website || "", linkedin: data.linkedin || "",
+          teamSize: data.teamSize || "", clientCount: data.clientCount || "",
+          hourlyRate: data.hourlyRate || "", avgClientValue: data.avgClientValue || "",
+          pillars: (data.pillars && data.pillars.length === PILLARS.length)
+            ? data.pillars.map(p => ({...p, answers: p.answers || [3,3], evidence: p.evidence || ["",""], manualHours: p.manualHours || "", open:false}))
+            : PILLARS.map(p => ({ score:6, evidence:["",""], answers:[3,3], manualHours:"", recommendation:"", priority:"Medium", timeSaved:"", costSaved:"", open:false }))
+        };
+        document.getElementById('agencyName').value = state.agencyName;
+        document.getElementById('agencyLink').value = state.agencyLink;
+        document.getElementById('ownerName').value = state.ownerName;
+        document.getElementById('auditDate').value = state.auditDate;
+        document.getElementById('website').value = state.website;
+        document.getElementById('linkedin').value = state.linkedin;
+        document.getElementById('teamSize').value = state.teamSize;
+        document.getElementById('clientCount').value = state.clientCount;
+        document.getElementById('hourlyRate').value = state.hourlyRate;
+        document.getElementById('avgClientValue').value = state.avgClientValue;
+        renderPillars();
+        updateSummary();
+        renderSubmittedFlag();
+        setSaveStatus('saved', 'Loaded · last saved ' + (data.savedAt ? new Date(data.savedAt).toLocaleString() : ''));
+        document.querySelector('.tab[data-tab="builder"]').click();
+      });
+    });
+    list.querySelectorAll('.deleteAuditBtn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if(!confirm('Delete this audit? This cannot be undone.')) return;
+        await db.collection(AUDITS_COLLECTION).doc(btn.dataset.id).delete();
+      });
+    });
+  }, err => {
+    console.error(err);
+    const detail = err && (err.code || err.message) ? (err.code || err.message) : 'unknown error';
+    list.innerHTML = '<div class="empty">Could not load saved audits (' + esc(detail) + '). Check Firestore security rules.</div>';
+  });
+}
+
+function computeImpact(){
+  const CLIENT_HOURS_PER_WEEK = 4;
+  const totalWeeklyHours = state.pillars.reduce((s,p) => s + (Number(p.manualHours)||0), 0);
+  const hourlyRate = Number(state.hourlyRate) || 0;
+  const avgClientValue = Number(state.avgClientValue) || 0;
+  const annualHours = Math.round(totalWeeklyHours * 52);
+  const annualCost = Math.round(annualHours * hourlyRate);
+  const potentialNewClients = totalWeeklyHours > 0 ? Math.floor(totalWeeklyHours / CLIENT_HOURS_PER_WEEK) : 0;
+  const potentialAnnualRevenue = Math.round(potentialNewClients * avgClientValue * 12);
+  return { totalWeeklyHours, hourlyRate, avgClientValue, annualHours, annualCost, potentialNewClients, potentialAnnualRevenue };
+}
+
+function buildReport(){
+  const total = state.pillars.reduce((s,p)=>s+p.score,0);
+  const pct = total/70;
+  const level = pct>=.8 ? "Scale Ready" : pct>=.6 ? "Developing" : pct>=.4 ? "At Risk" : "Fragile";
+  const levelColor = pct>=.8 ? "#15803D" : pct>=.6 ? "#2563EB" : pct>=.4 ? "#B45309" : "#B91C1C";
+  const sorted = state.pillars.map((p,i)=>({...p,name:PILLARS[i].name,desc:PILLARS[i].desc})).sort((a,b)=>b.score-a.score);
+  const strengths=sorted.slice(0,2), priorities=sorted.slice(-2).reverse();
+  const answered = state.pillars.reduce((s,p)=>s+(p.answers||[]).filter(v=>Number(v)>=1).length,0);
+  const summary = total>=56
+    ? "Your agency has a strong operating foundation. The next opportunity is to protect consistency as volume grows and remove the remaining points of founder dependency."
+    : total>=42
+    ? "The core of the agency is working, but several systems are likely to become pressure points as client volume or team size increases."
+    : total>=28
+    ? "The assessment shows meaningful operational risk. Growth without tightening the weakest areas is likely to create more founder involvement, inconsistency and avoidable client friction."
+    : "The assessment shows a fragile operating foundation. The priority should be creating repeatable processes before adding more complexity or volume.";
+
+  const bars = state.pillars.map((p,i)=>{
+    const c=p.score>=8?"#15803D":p.score>=5?"#D39E00":"#C2410C";
+    return `<div class="r-bar-row"><div>${PILLARS[i].name}</div><div class="r-bar-track"><div class="r-bar-fill" style="width:${p.score*10}%;background:${c}"></div></div><b>${p.score}/10</b></div>`;
+  }).join("");
+
+  const impact = computeImpact();
+  let impactHtml = "";
+  if(impact.totalWeeklyHours > 0){
+    const parts = [];
+    parts.push(`The team is currently losing an estimated <b>${impact.totalWeeklyHours} hrs/week</b> (about <b>${impact.annualHours.toLocaleString()} hrs/year</b>) to manual work across the areas assessed.`);
+    if(impact.hourlyRate > 0) parts.push(`At the team's hourly rate, that's roughly <b>$${impact.annualCost.toLocaleString()}/year</b> in time.`);
+    if(impact.avgClientValue > 0 && impact.potentialNewClients > 0) parts.push(`Redirected, that's enough capacity for an estimated <b>${impact.potentialNewClients} additional client${impact.potentialNewClients===1?'':'s'}</b> — worth roughly <b>$${impact.potentialAnnualRevenue.toLocaleString()}/year</b> in revenue.`);
+    impactHtml = `
+    <div class="r-section-title">Time &amp; revenue impact</div>
+    <div class="r-exec" style="border-left-color:#2563EB;">${parts.join(' ')}</div>
+    <div class="r-mini-grid">
+      <div><b>Hours lost / week</b><strong>${impact.totalWeeklyHours}</strong></div>
+      <div><b>Hours lost / year</b><strong>${impact.annualHours.toLocaleString()}</strong></div>
+      <div><b>Est. annual cost</b><strong>${impact.hourlyRate>0 ? '$'+impact.annualCost.toLocaleString() : '—'}</strong></div>
+      <div><b>Revenue opportunity</b><strong>${impact.avgClientValue>0 ? '$'+impact.potentialAnnualRevenue.toLocaleString() : '—'}</strong></div>
+    </div>
+    <div style="font-size:10px;color:#9CA3AF;margin-top:8px;">Estimate assumes roughly 4 hours/week of freed capacity can support one additional client. Figures are directional, not guaranteed.</div>`;
+  }
+
+  const recommendations = priorities.map(p=>{
+    const i=state.pillars.findIndex(x=>x===p);
+    const a=p.answers||[3,3];
+    const q1=answerLabel(a[0]), q2=answerLabel(a[1]);
+    return `<div class="r-priority"><div class="r-priority-num">${i+1}</div><div><h4>${p.name}</h4><p>${p.desc}</p><div class="r-answer-note">Q1: ${q1} · Q2: ${q2}</div></div></div>`;
+  }).join("");
+
+  document.getElementById('reportContent').innerHTML = `
+    <div class="report-cover">
+      <div class="report-brand">AGENCY OPERATIONS READINESS™</div>
+      <div class="report-cover-line"></div>
+      <h1>${state.agencyName || 'Agency Operations Report'}</h1>
+      <p>Operational Readiness Assessment</p>
+      <div class="report-cover-score"><span>${total}</span><small>/70</small></div>
+      <div class="report-cover-status" style="color:${levelColor};background:${levelColor}16">${level}</div>
+      <div class="report-cover-meta">
+        Prepared for ${state.ownerName || 'Agency owner'} · ${state.auditDate || new Date().toLocaleDateString()}<br>
+        ${state.teamSize ? 'Team '+state.teamSize+' · ' : ''}${state.clientCount ? state.clientCount+' active clients' : ''}
+      </div>
+    </div>
+
+    <div class="r-section-title">Executive summary</div>
+    <div class="r-exec">${summary}</div>
+    <div class="r-mini-grid">
+      <div><b>Readiness score</b><strong>${total}/70</strong></div>
+      <div><b>Questions answered</b><strong>${answered}/14</strong></div>
+      <div><b>Strongest area</b><strong>${strengths[0]?.name || '—'}</strong></div>
+      <div><b>Priority area</b><strong>${priorities[0]?.name || '—'}</strong></div>
+    </div>
+
+    <div class="r-section-title">Agency Readiness Profile</div>
+    <div class="r-bars">${bars}</div>
+    ${impactHtml}
+
+    <div class="r-section-title">What is working</div>
+    ${strengths.map(p=>`<div class="r-callout good"><b>${p.name} · ${p.score}/10</b><span>${p.desc}</span></div>`).join("")}
+
+    <div class="r-section-title">Where to focus next</div>
+    ${recommendations}
+
+    <div class="r-section-title">Assessment responses</div>
+    ${state.pillars.map((p,i)=>`
+      <div class="r-response">
+        <div class="r-response-head"><b>${i+1}. ${PILLARS[i].name}</b><strong>${p.score}/10</strong></div>
+        <div>Q1 — ${PILLARS[i].questions[0]}<br><span>${answerLabel((p.answers||[])[0])}</span></div>
+        <div>Q2 — ${PILLARS[i].questions[1]}<br><span>${answerLabel((p.answers||[])[1])}</span></div>
+        ${p.manualHours ? `<div>Hours lost/week — <span>${p.manualHours}</span></div>` : ''}
+      </div>`).join("")}
+
+    <div class="r-clean-footer">Agency Operations Readiness™ · Prepared for internal planning</div>
+  `;
+}
+
+async function generateProfessionalPDF(){
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    alert("PDF engine could not load. Check your internet connection and try again.");
+    return;
+  }
+  if(!state.agencyName){
+    alert("Add your agency name first.");
+    return;
+  }
+  await persistAudit(true);
+  buildReport();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const navy=[17,21,46], gold=[255,215,0], gray=[107,114,128], light=[247,247,250];
+  const green=[21,128,61], amber=[180,83,9], red=[185,28,28];
+  const total=state.pillars.reduce((s,p)=>s+p.score,0);
+  const pct=total/70;
+  const level=pct>=.8?"Scale Ready":pct>=.6?"Developing":pct>=.4?"At Risk":"Fragile";
+  const lc=pct>=.8?green:pct>=.6?[37,99,235]:pct>=.4?amber:red;
+  const margin=18, W=210;
+
+  function header(title){
+    doc.setFillColor(...navy); doc.rect(0,0,W,14,"F");
+    doc.setTextColor(...gold); doc.setFontSize(8); doc.setFont("helvetica","bold");
+    doc.text("AGENCY OPERATIONS READINESS™",margin,9);
+    doc.setTextColor(...gray); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text(title,W-margin,9,{align:"right"});
+  }
+  function footer(page){
+    doc.setDrawColor(225,227,234); doc.line(margin,285,W-margin,285);
+    doc.setTextColor(156,163,175); doc.setFontSize(7);
+    doc.text("Agency Operations Readiness™ · Prepared for internal planning",margin,291);
+    doc.text(String(page),W-margin,291,{align:"right"});
+  }
+  function title(t,y){
+    doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(t,margin,y);
+    doc.setDrawColor(...gold); doc.setLineWidth(.9); doc.line(margin,y+4,margin+18,y+4);
+  }
+  function wrap(text,x,y,max,size=10,color=navy,lh=5){
+    doc.setFont("helvetica","normal"); doc.setFontSize(size); doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(String(text||""),max);
+    doc.text(lines,x,y); return y+lines.length*lh;
+  }
+
+  // Cover
+  doc.setFillColor(...navy); doc.rect(0,0,W,297,"F");
+  doc.setTextColor(...gold); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("AGENCY OPERATIONS READINESS™",margin,30);
+  doc.setDrawColor(...gold); doc.setLineWidth(1.2); doc.line(margin,36,margin+28,36);
+  doc.setTextColor(255,255,255); doc.setFontSize(30); doc.setFont("helvetica","bold");
+  const coverName=doc.splitTextToSize(state.agencyName||"Agency Operations Report",155);
+  doc.text(coverName,margin,70);
+  doc.setTextColor(203,207,222); doc.setFontSize(12); doc.setFont("helvetica","normal");
+  doc.text("Operational Readiness Assessment",margin,70+coverName.length*12+6);
+  doc.setTextColor(...gold); doc.setFontSize(58); doc.setFont("helvetica","bold");
+  doc.text(String(total),margin,150);
+  doc.setTextColor(180,185,200); doc.setFontSize(18); doc.text("/70",margin+52,150);
+  doc.setFillColor(...lc); doc.roundedRect(margin,164,38,10,5,5,"F");
+  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.text(level,margin+19,170.5,{align:"center"});
+  doc.setTextColor(205,208,220); doc.setFontSize(9);
+  doc.text(`Prepared for ${state.ownerName||"Agency owner"}`,margin,192);
+  doc.text(`${state.auditDate||new Date().toLocaleDateString()} · ${state.teamSize||"Team size not provided"}`,margin,199);
+  if(state.website) doc.text("Website: "+state.website,margin,206);
+  doc.setTextColor(130,136,158); doc.setFontSize(7);
+  doc.text("A concise operating-system view of the agency today.",margin,270);
+
+  // Executive summary
+  doc.addPage(); header("EXECUTIVE SUMMARY");
+  title("Executive summary",30);
+  const summary=total>=56
+    ?"Your agency has a strong operating foundation. The next opportunity is protecting consistency as volume grows and removing remaining founder dependency."
+    :total>=42
+    ?"The core is working, but several systems are likely to become pressure points as client volume or team size increases."
+    :total>=28
+    ?"The assessment shows meaningful operational risk. Tightening the weakest systems before adding more volume will reduce founder dependency and delivery friction."
+    :"The operating foundation is fragile. The immediate priority is creating repeatable processes before adding more complexity or volume.";
+  let y=47;
+  y=wrap(summary,margin,y,W-2*margin-4,11,navy,6);
+  y+=12;
+  const cards=[
+    ["READINESS",`${total}/70`],
+    ["ANSWERED",`${state.pillars.reduce((s,p)=>s+(p.answers||[]).filter(v=>Number(v)>=1).length,0)}/14`],
+    ["STRONGEST",state.pillars.slice().sort((a,b)=>b.score-a.score)[0] ? PILLARS[state.pillars.indexOf(state.pillars.slice().sort((a,b)=>b.score-a.score)[0])].name:"—"],
+    ["PRIORITY",state.pillars.slice().sort((a,b)=>a.score-b.score)[0] ? PILLARS[state.pillars.indexOf(state.pillars.slice().sort((a,b)=>a.score-b.score)[0])].name:"—"]
+  ];
+  cards.forEach((c,i)=>{
+    const x=margin+i*43;
+    doc.setFillColor(...light); doc.roundedRect(x,y,39,25,3,3,"F");
+    doc.setTextColor(...gray); doc.setFontSize(6); doc.setFont("helvetica","bold"); doc.text(c[0],x+3,y+7);
+    doc.setTextColor(...navy); doc.setFontSize(i<2?12:8); doc.text(doc.splitTextToSize(c[1],33),x+3,y+16);
+  });
+  y+=40;
+  title("Agency Readiness Profile",y); y+=12;
+  state.pillars.forEach((p,i)=>{
+    const c=p.score>=8?green:p.score>=5?amber:red;
+    doc.setTextColor(...navy); doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(PILLARS[i].name,margin,y);
+    doc.setFillColor(235,237,242); doc.roundedRect(margin+48,y-4,112,6,3,3,"F");
+    doc.setFillColor(...c); doc.roundedRect(margin+48,y-4,112*(p.score/10),6,3,3,"F");
+    doc.setFont("helvetica","bold"); doc.text(`${p.score}/10`,margin+166,y);
+    y+=14;
+  });
+  footer(2);
+
+  // Time & revenue impact (only if hours were entered)
+  const impact = computeImpact();
+  let pageNum = 2;
+  if(impact.totalWeeklyHours > 0){
+    pageNum = 3;
+    doc.addPage(); header("TIME & REVENUE IMPACT");
+    title("Time & revenue impact",30);
+    y=47;
+    const parts=[];
+    parts.push(`The team is currently losing an estimated ${impact.totalWeeklyHours} hrs/week (about ${impact.annualHours.toLocaleString()} hrs/year) to manual work across the areas assessed.`);
+    if(impact.hourlyRate>0) parts.push(`At the team's hourly rate, that's roughly $${impact.annualCost.toLocaleString()}/year in time.`);
+    if(impact.avgClientValue>0 && impact.potentialNewClients>0) parts.push(`Redirected, that's enough capacity for an estimated ${impact.potentialNewClients} additional client${impact.potentialNewClients===1?'':'s'} — worth roughly $${impact.potentialAnnualRevenue.toLocaleString()}/year in revenue.`);
+    y=wrap(parts.join(' '),margin,y,W-2*margin-4,11,navy,6);
+    y+=14;
+    const impactCards=[
+      ["HOURS LOST / WEEK", String(impact.totalWeeklyHours)],
+      ["HOURS LOST / YEAR", impact.annualHours.toLocaleString()],
+      ["EST. ANNUAL COST", impact.hourlyRate>0 ? "$"+impact.annualCost.toLocaleString() : "—"],
+      ["REVENUE OPPORTUNITY", impact.avgClientValue>0 ? "$"+impact.potentialAnnualRevenue.toLocaleString() : "—"]
+    ];
+    impactCards.forEach((c,i)=>{
+      const x=margin+i*43;
+      doc.setFillColor(...light); doc.roundedRect(x,y,39,25,3,3,"F");
+      doc.setTextColor(...gray); doc.setFontSize(6); doc.setFont("helvetica","bold"); doc.text(c[0],x+3,y+7);
+      doc.setTextColor(...navy); doc.setFontSize(12); doc.text(doc.splitTextToSize(c[1],33),x+3,y+16);
+    });
+    y+=38;
+    doc.setTextColor(...gray); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    y=wrap("Estimate assumes roughly 4 hours/week of freed capacity can support one additional client. Figures are directional, not guaranteed.",margin,y,W-2*margin-4,7,gray,4);
+    footer(pageNum);
+  }
+
+  // Priorities
+  doc.addPage(); header("PRIORITIES");
+  title("Where to focus next",30);
+  y=47;
+  state.pillars.map((p,i)=>({p,i})).sort((a,b)=>a.p.score-b.p.score).slice(0,4).forEach((x,rank)=>{
+    const p=x.p, i=x.i;
+    doc.setFillColor(...light); doc.roundedRect(margin,y-6,174,36,4,4,"F");
+    doc.setFillColor(...navy); doc.roundedRect(margin+4,y-1,18,18,4,4,"F");
+    doc.setTextColor(...gold); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text(String(rank+1),margin+13,y+11,{align:"center"});
+    doc.setTextColor(...navy); doc.setFontSize(11); doc.text(`${PILLARS[i].name} · ${p.score}/10`,margin+28,y+7);
+    doc.setTextColor(...gray); doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(doc.splitTextToSize(PILLARS[i].desc,135),margin+28,y+14);
+    doc.setTextColor(...gray); doc.setFontSize(7);
+    doc.text(`Q1: ${answerLabel((p.answers||[])[0])}   Q2: ${answerLabel((p.answers||[])[1])}`,margin+28,y+26);
+    y+=45;
+  });
+  y+=4; title("What is already working",y); y+=12;
+  state.pillars.map((p,i)=>({p,i})).sort((a,b)=>b.p.score-a.p.score).slice(0,3).forEach(x=>{
+    doc.setTextColor(...green); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text(`✓ ${PILLARS[x.i].name} — ${x.p.score}/10`,margin,y); y+=9;
+  });
+  footer(doc.getNumberOfPages());
+
+  // Responses
+  doc.addPage(); header("ASSESSMENT RESPONSES");
+  title("Assessment responses",30); y=45;
+  state.pillars.forEach((p,i)=>{
+    if(y>260){ footer(doc.getNumberOfPages()); doc.addPage(); header("ASSESSMENT RESPONSES"); title("Assessment responses",30); y=45; }
+    doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text(`${i+1}. ${PILLARS[i].name} · ${p.score}/10`,margin,y); y+=6;
+    y=wrap("Q1: "+PILLARS[i].questions[0],margin,y,174,7,gray,4);
+    doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.text("Answer: "+answerLabel((p.answers||[])[0]),margin,y); y+=6;
+    y=wrap("Q2: "+PILLARS[i].questions[1],margin,y,174,7,gray,4);
+    doc.setTextColor(...navy); doc.text("Answer: "+answerLabel((p.answers||[])[1]),margin,y); y+=10;
+    doc.setDrawColor(230,232,237); doc.line(margin,y,192,y); y+=8;
+  });
+  footer(doc.getNumberOfPages());
+
+  doc.save(`AOR-${(state.agencyName||"Agency").replace(/[^a-z0-9]+/gi,"-")}-Report.pdf`);
+}
+
+document.getElementById('reportBtn').addEventListener('click', generateProfessionalPDF);
+
+if(!document.getElementById('auditDate').value){
+  const today = new Date();
+  document.getElementById('auditDate').value = today.toISOString().slice(0,10);
+  state.auditDate = document.getElementById('auditDate').value;
+}
+renderPillars();
+updateSummary();
+renderSubmittedFlag();
+loadSavedList();
+</script>
+</body>
+</html>
